@@ -1,3 +1,4 @@
+
 const resolverSection = document.getElementById('resolver-form');
 const input = document.getElementById('link-input');
 const feedback = document.getElementById('feedback');
@@ -19,9 +20,12 @@ let toastTimer;
 if (!resolverSection || !input || !resolveButton || !downloadLink || !videoElement || !videoCaption) {
     console.warn('SVDown: elementos essenciais não encontrados, script abortado.');
 } else {
-    const { spinner: downloadSpinner, label: downloadLabel } = ensureDownloadButtonParts();
+    const {
+        spinner: downloadSpinner,
+        label: downloadLabel
+    } = ensureDownloadButtonParts();
     const captionHint = document.getElementById('caption-hint');
-    const originalDownloadLabel = downloadLabel.textContent ? .trim() || 'Baixar vídeo';
+    const originalDownloadLabel = downloadLabel.textContent?.trim() || 'Baixar vídeo';
     let currentDownloadUrl = '';
 
     resolveButton.addEventListener('click', () => handleResolve(input.value.trim()));
@@ -39,10 +43,11 @@ if (!resolverSection || !input || !resolveButton || !downloadLink || !videoEleme
             copyCaptionToClipboard();
         }
     });
+
     const copyPixButton = document.getElementById('copy-pix');
-    copyPixButton ? .addEventListener('click', () => copyPixKey('5573991060975'));
+    copyPixButton?.addEventListener('click', () => copyPixKey('5573991060975'));
     const newDownloadButton = document.getElementById('new-download');
-    newDownloadButton ? .addEventListener('click', resetForm);
+    newDownloadButton?.addEventListener('click', resetForm);
 
     tryResolveFromQuery();
 
@@ -52,18 +57,22 @@ if (!resolverSection || !input || !resolveButton || !downloadLink || !videoEleme
             return;
         }
 
-        setLoading(true, 'Resolvendo link…');
-        showFeedback('Resolvendo link…');
+        setLoading(true, 'Resolvendo link...');
+        showFeedback('Resolvendo link...');
 
         fetch('/api/resolve', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ link }),
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    link
+                }),
             })
             .then(async response => {
                 const data = await response.json();
                 if (!response.ok) {
-                    throw new Error(data ? .error || 'Não foi possível resolver o link.');
+                    throw new Error(data?.error || 'Não foi possível resolver o link.');
                 }
                 renderResult(data);
                 showFeedback('Link resolvido com sucesso!');
@@ -81,9 +90,9 @@ if (!resolverSection || !input || !resolveButton || !downloadLink || !videoEleme
         if (!currentDownloadUrl) return;
         event.preventDefault();
 
-        setLoading(true, 'Preparando download…');
+        setLoading(true, 'Preparando download...');
         setDownloadLoading(true);
-        showFeedback('Seu vídeo está sendo preparado. Isso pode levar alguns instantes…');
+        showFeedback('Seu vídeo está sendo preparado. Isso pode levar alguns instantes...');
 
         fetch(currentDownloadUrl)
             .then(response => {
@@ -113,10 +122,14 @@ if (!resolverSection || !input || !resolveButton || !downloadLink || !videoEleme
     }
 
     function renderResult(data) {
-        const { pageProps, directVideoUrl, shareUrl } = data;
-        const videoInfo = pageProps ? .mediaInfo ? .video;
-        const userInfo = pageProps ? .userInfo || pageProps ? .userDetail;
-        const counts = pageProps ? .mediaInfo ? .count;
+        const {
+            pageProps,
+            directVideoUrl,
+            shareUrl
+        } = data;
+        const videoInfo = pageProps?.mediaInfo?.video;
+        const userInfo = pageProps?.userInfo || pageProps?.userDetail;
+        const counts = pageProps?.mediaInfo?.count;
 
         if (!directVideoUrl) {
             showFeedback('Vídeo não encontrado para este link.', true);
@@ -125,10 +138,12 @@ if (!resolverSection || !input || !resolveButton || !downloadLink || !videoEleme
             return;
         }
 
-        const fallbackUrl = videoInfo ? .watermarkVideoUrl;
+        const fallbackUrl = videoInfo?.watermarkVideoUrl;
 
         videoElement.src = directVideoUrl;
-        const params = new URLSearchParams({ url: directVideoUrl });
+        const params = new URLSearchParams({
+            url: directVideoUrl
+        });
         if (fallbackUrl) params.set('fallback', fallbackUrl);
         currentDownloadUrl = `/api/download?${params.toString()}`;
         downloadLink.href = currentDownloadUrl;
@@ -138,10 +153,10 @@ if (!resolverSection || !input || !resolveButton || !downloadLink || !videoEleme
             shareLink.href = shareUrl;
         }
 
-        creatorName.textContent = userInfo ? .videoUserName || 'Criador desconhecido';
-        videoCaption.textContent = videoInfo ? .caption || 'Sem descrição definida.';
-        likeCount.textContent = formatNumber(counts ? .likeCount);
-        commentCount.textContent = formatNumber(counts ? .commentCount);
+        creatorName.textContent = userInfo?.videoUserName || 'Criador desconhecido';
+        videoCaption.textContent = videoInfo?.caption || 'Sem descrição definida.';
+        likeCount.textContent = formatNumber(counts?.likeCount);
+        commentCount.textContent = formatNumber(counts?.commentCount);
 
         resultSection.classList.remove('hidden');
     }
@@ -163,7 +178,10 @@ if (!resolverSection || !input || !resolveButton || !downloadLink || !videoEleme
             downloadLink.append(label);
         }
 
-        return { spinner, label };
+        return {
+            spinner,
+            label
+        };
     }
 
     function showFeedback(message, isError = false) {
@@ -173,7 +191,7 @@ if (!resolverSection || !input || !resolveButton || !downloadLink || !videoEleme
         feedback.classList.remove('hidden');
     }
 
-    function setLoading(state, message = 'Processando…') {
+    function setLoading(state, message = 'Processando...') {
         if (message && loaderText) loaderText.textContent = message;
         if (loader) loader.classList.toggle('hidden', !state);
         resolveButton.disabled = state;
@@ -184,7 +202,7 @@ if (!resolverSection || !input || !resolveButton || !downloadLink || !videoEleme
 
     function setDownloadLoading(state) {
         downloadSpinner.classList.toggle('hidden', !state);
-        downloadLabel.textContent = state ? 'Baixando…' : originalDownloadLabel;
+        downloadLabel.textContent = state ? 'Baixando...' : originalDownloadLabel;
         downloadLink.classList.toggle('disabled', state);
         downloadLink.setAttribute('aria-disabled', String(state));
     }
@@ -219,14 +237,14 @@ if (!resolverSection || !input || !resolveButton || !downloadLink || !videoEleme
     }
 
     function copyCaptionToClipboard() {
-        const text = videoCaption.textContent ? .trim();
+        const text = videoCaption.textContent?.trim();
         if (!text) {
             showFeedback('Nenhuma legenda disponível para copiar.', true);
             showToast('Nenhuma legenda disponível para copiar.', true);
             return;
         }
 
-        if (navigator.clipboard ? .writeText) {
+        if (navigator.clipboard?.writeText) {
             navigator.clipboard
                 .writeText(text)
                 .then(() => {
@@ -263,7 +281,7 @@ if (!resolverSection || !input || !resolveButton || !downloadLink || !videoEleme
 
     function copyPixKey(value) {
         if (!value) return;
-        if (navigator.clipboard ? .writeText) {
+        if (navigator.clipboard?.writeText) {
             navigator.clipboard
                 .writeText(value)
                 .then(() => {
