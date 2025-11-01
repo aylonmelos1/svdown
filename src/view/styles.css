@@ -299,6 +299,14 @@ body {
   font-size: 0.95em;
 }
 
+.footer {
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  display: grid;
+  gap: 0.25rem;
+}
+
 @media (min-width: 840px) {
   .video-card {
     grid-template-columns: minmax(0, 56%) minmax(0, 1fr);

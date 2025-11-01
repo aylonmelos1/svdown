@@ -80,14 +80,14 @@
             <span id="loading-text">Processando…</span>
         </div>
 
-        <form id="resolver-form" class="resolver-form" autocomplete="off">
+        <section id="resolver-form" class="resolver-form">
             <label for="link-input">Link da Shopee</label>
             <div class="input-group">
                 <input id="link-input" type="url" name="link" placeholder="https://br.shp.ee/..." required autocomplete="off" />
-                <button type="submit">Resolver</button>
+                <button id="resolve-button" type="button">Resolver</button>
             </div>
             <p id="feedback" class="feedback hidden"></p>
-        </form>
+        </section>
 
         <section id="result-section" class="result hidden" aria-live="polite">
             <article class="video-card">
@@ -127,19 +127,19 @@
                 <li>Processamento rápido, direto do navegador e sem custos.</li>
             </ul>
         </section>
-        <section>
-            <h2>Identificou algum bug?</h2>
+        <section class="seo-copy" aria-label="Contato e suporte">
+            <h3>Identificou algum bug?</h3>
             <p>
-                Somos uma ferramenta gratuita e mantida por entusiastas. Se você encontrou algum problema, por favor
-                <a href="https://instagram.com/promizei" target="_blank" rel="noopener">nos avise</a>.
+                Somos uma ferramenta gratuita e mantida por entusiastas. Se você encontrou algum problema,
+                <a href="https://instagram.com/promizei" target="_blank" rel="noopener">entre em contato pelo Instagram</a>.
             </p>
         </section>
-        <script src=" script.js " type="module ">
-        </script>
-        <footer>
+        <footer class="footer">
             <p>© 2024 SVDown. Todos os direitos reservados.</p>
             <p>Feito com ♥ por entusiastas de tecnologia.</p>
         </footer>
+    </main>
+    <script src="script.js" type="module"></script>
 </body>
 
 </html>
