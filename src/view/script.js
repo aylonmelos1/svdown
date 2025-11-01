@@ -81,14 +81,17 @@ if (!resolverSection || !input || !resolveButton || !downloadLink || !videoEleme
     if (!currentDownloadUrl) return;
     event.preventDefault();
 
-    setLoading(true, 'Baixando vídeo limpo…');
+    setLoading(true, 'Preparando download…');
     setDownloadLoading(true);
-    showFeedback('Preparando download...');
+    showFeedback('Seu vídeo está sendo preparado. Isso pode levar alguns instantes…');
 
     fetch(currentDownloadUrl)
       .then(response => {
         if (!response.ok) {
           throw new Error('Falha ao iniciar download.');
+        }
+        if (response.headers.get('X-Metadata-Cleaned') === 'false') {
+          showToast('Não foi possível remover os metadados do vídeo.', true);
         }
         return response.blob();
       })
