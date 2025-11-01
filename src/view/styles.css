@@ -44,10 +44,33 @@ body {
   gap: 2rem;
 }
 
+.hero-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  margin-bottom: 0.65rem;
+}
+
+.hero-logo {
+  width: clamp(40px, 6vw, 52px);
+  height: clamp(40px, 6vw, 52px);
+}
+
 .hero h1 {
-  margin: 0 0 0.5rem;
+  margin: 0;
   font-size: clamp(2.5rem, 4vw, 3.2rem);
   letter-spacing: -0.02em;
+  display: flex;
+  gap: 0.15rem;
+  align-items: baseline;
+}
+
+.brand-sv {
+  color: #f1812f;
+}
+
+.brand-down {
+  color: #ffffff;
 }
 
 .hero p {
