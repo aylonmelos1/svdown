@@ -227,6 +227,7 @@ if (!resolverSection || !input || !resolveButton || !downloadLink || !videoEleme
         input.value = '';
         resetDownloadLink();
         resultSection.classList.add('hidden');
+        resolverSection.classList.remove('hidden');
         showFeedback('Pronto para baixar outro vídeo!');
         showToast('Pronto para baixar outro vídeo!');
         if (captionBubble) {

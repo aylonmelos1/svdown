@@ -403,6 +403,10 @@ body {
     margin-top: 0.5rem;
 }
 
+.btn.secondary.clear-action {
+    background-color: #334155;
+}
+
 .footer {
     text-align: center;
     color: var(--text-muted);
