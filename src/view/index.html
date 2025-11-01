@@ -2,23 +2,85 @@
 <html lang="pt-BR">
 
 <head>
+    <!-- Google Tag Manager -->
+    <script>
+        (function(w, d, s, l, i) {
+            w[l] = w[l] || [];
+            w[l].push({
+                'gtm.start': new Date().getTime(),
+                event: 'gtm.js'
+            });
+            var f = d.getElementsByTagName(s)[0],
+                j = d.createElement(s),
+                dl = l != 'dataLayer' ? '&l=' + l : '';
+            j.async = true;
+            j.src =
+                'https://www.googletagmanager.com/gtm.js?id=' + i + dl;
+            f.parentNode.insertBefore(j, f);
+        })(window, document, 'script', 'dataLayer', 'GTM-N7M93W8J');
+    </script>
+    <!-- End Google Tag Manager -->
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>SVDown · Baixar vídeo da Shopee</title>
+    <title>SVDown · Baixar vídeo da Shopee sem marca d&rsquo;água</title>
+    <meta name="description" content="SVDown resolve links da Shopee Video e gera downloads sem marca d’água e sem metadados. Cole o link e receba o MP4 limpo direto no navegador." />
+    <meta name="keywords" content="baixar vídeo shopee,saver shopee video,download shopeedown,sobre remover marca d'água, baixar vídeo sem metadados" />
+    <meta name="author" content="SVDown" />
+    <meta name="robots" content="index, follow" />
+    <link rel="canonical" href="https://svdown.app/" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="SVDown · Baixar vídeo da Shopee sem marca d’água" />
+    <meta property="og:description" content="Ferramenta gratuita para baixar vídeos da Shopee Video sem marca d’água e com metadados removidos." />
+    <meta property="og:url" content="https://svdown.app/" />
+    <meta property="og:site_name" content="SVDown" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="SVDown · Baixar vídeo da Shopee sem marca d’água" />
+    <meta name="twitter:description" content="Cole o link da Shopee, resolva o universal link e baixe o MP4 limpo sem marca d’água ou metadados." />
     <link rel="stylesheet" href="styles.css" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
+    <script type="application/ld+json">
+        {
+            "@context": "https://schema.org",
+            "@type": "SoftwareApplication",
+            "name": "SVDown",
+            "operatingSystem": "Web",
+            "applicationCategory": "MultimediaApplication",
+            "offers": {
+                "@type": "Offer",
+                "price": "0",
+                "priceCurrency": "BRL"
+            },
+            "description": "Ferramenta online para baixar vídeos da Shopee sem marca d'água e sem metadados com máxima qualidade.",
+            "url": "https://svdown.app/",
+            "creator": {
+                "@type": "Organization",
+                "name": "SVDown"
+            }
+        }
+    </script>
 </head>
 
 <body>
+    <!-- Google Tag Manager (noscript) -->
+    <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-N7M93W8J" height="0" width="0"
+            style="display:none;visibility:hidden"></iframe></noscript>
+    <!-- End Google Tag Manager (noscript) -->
     <main class="container">
         <header class="hero">
             <h1>SVDown</h1>
-            <p>Cole o link da Shopee (short ou universal) e veja o vídeo sem marca d&rsquo;água.</p>
+            <p>
+                Baixe vídeos da Shopee Video sem marca d&rsquo;água, sem metadados e prontos para publicar em qualquer rede.
+            </p>
         </header>
 
-        <form id="resolver-form" class="resolver-form">
+        <div id="loading-indicator" class="loading hidden" role="status" aria-live="polite">
+            <span class="spinner" aria-hidden="true"></span>
+            <span id="loading-text">Processando…</span>
+        </div>
+
+        <form id="resolver-form" class="resolver-form" autocomplete="off">
             <label for="link-input">Link da Shopee</label>
             <div class="input-group">
                 <input id="link-input" type="url" name="link" placeholder="https://br.shp.ee/..." required autocomplete="off" />
@@ -27,7 +89,7 @@
             <p id="feedback" class="feedback hidden"></p>
         </form>
 
-        <section id="result-section" class="result hidden">
+        <section id="result-section" class="result hidden" aria-live="polite">
             <article class="video-card">
                 <video id="video-player" controls playsinline></video>
                 <div class="video-meta">
@@ -38,19 +100,46 @@
                         <li><span id="comment-count">0</span> comentários</li>
                     </ul>
                     <div class="actions">
-                        <a id="download-link" class="btn secondary" download>Baixar vídeo</a>
+                        <a id="download-link" class="btn secondary" href="#">
+                            <span class="btn-spinner hidden" aria-hidden="true"></span>
+                            <span class="btn-label">Baixar vídeo</span>
+                        </a>
                         <a id="share-link" class="btn" target="_blank" rel="noopener">Abrir no Shopee</a>
                     </div>
                 </div>
             </article>
         </section>
-    </main>
 
-    <template id="error-template">
-      <p class="feedback error"></p>
-    </template>
-
-    <script src="script.js" type="module"></script>
+        <section class="seo-copy" aria-label="Como funciona o SVDown">
+            <h2>Baixe vídeos da Shopee Video em segundos</h2>
+            <p>
+                O SVDown localiza e disponibiliza para você o vídeo da Shopee, remove parâmetros extras e entrega o MP4 direto para download.<br> Você pode instalar esse site no seu aparelho sem precisar de permissões especiais e sem comprometer a qualidade
+                original.
+            </p>
+            <p>
+                Nossa ferramenta remove tanto a marca d&rsquo;água padrão quanto os metadados do arquivo, garantindo um vídeo limpo e pronto para ser reutilizado em outras campanhas, redes sociais ou edições.
+            </p>
+            <h3>Por que usar o SVDown?</h3>
+            <ul>
+                <li>Resolve todos links curtos e universais da Shopee automaticamente;</li>
+                <li>Entrega o vídeo sem marca d&rsquo;água e sem metadados escondidos, limpo parecendo um vídeo nunca utilizado;
+                </li>
+                <li>Processamento rápido, direto do navegador e sem custos.</li>
+            </ul>
+        </section>
+        <section>
+            <h2>Identificou algum bug?</h2>
+            <p>
+                Somos uma ferramenta gratuita e mantida por entusiastas. Se você encontrou algum problema, por favor
+                <a href="https://instagram.com/promizei" target="_blank" rel="noopener">nos avise</a>.
+            </p>
+        </section>
+        <script src=" script.js " type="module ">
+        </script>
+        <footer>
+            <p>© 2024 SVDown. Todos os direitos reservados.</p>
+            <p>Feito com ♥ por entusiastas de tecnologia.</p>
+        </footer>
 </body>
 
 </html>

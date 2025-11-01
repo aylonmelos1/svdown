@@ -1,6 +1,6 @@
 import axios from 'axios';
 import { Request, Response } from 'express';
-import { spawn } from 'child_process';
+import { spawn } from 'node:child_process';
 import ffmpegPath from 'ffmpeg-static';
 import log from '../log';
 
@@ -25,13 +25,15 @@ export const downloadVideoHandler = async (req: Request, res: Response) => {
         return;
     }
 
+    const executable = ffmpegPath;
+
     try {
         const videoResponse = await axios.get(targetUrl.toString(), {
             responseType: 'stream',
         });
 
         const fileName = buildFileName(targetUrl);
-        const ffmpeg = spawn(ffmpegPath, [
+        const ffmpeg = spawn(executable, [
             '-hide_banner',
             '-loglevel', 'error',
             '-i', 'pipe:0',
@@ -49,6 +51,8 @@ export const downloadVideoHandler = async (req: Request, res: Response) => {
             headersSent = true;
             res.setHeader('Content-Type', 'video/mp4');
             res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+            res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+            res.setHeader('X-Content-Type-Options', 'nosniff');
         };
 
         ffmpeg.stdout.on('data', sendHeadersOnce);

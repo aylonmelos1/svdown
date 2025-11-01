@@ -67,6 +67,33 @@ body {
   letter-spacing: 0.01em;
 }
 
+.loading {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.75rem 1.1rem;
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--surface-alt) 92%, rgba(255, 255, 255, 0.06));
+  border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
+  color: var(--text-muted);
+  align-self: start;
+}
+
+.spinner {
+  width: 1.35rem;
+  height: 1.35rem;
+  border-radius: 50%;
+  border: 3px solid color-mix(in srgb, var(--text) 30%, transparent);
+  border-top-color: var(--accent);
+  animation: spin 0.75s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .input-group {
   display: flex;
   gap: 0.75rem;
@@ -198,6 +225,19 @@ body {
   transition: transform 0.15s ease, box-shadow 0.2s ease;
 }
 
+.btn-spinner {
+  width: 1.1rem;
+  height: 1.1rem;
+  border-radius: 50%;
+  border: 2px solid color-mix(in srgb, var(--text) 35%, transparent);
+  border-top-color: var(--accent);
+  animation: spin 0.7s linear infinite;
+}
+
+.btn-label {
+  white-space: nowrap;
+}
+
 .btn.secondary {
   background: transparent;
   color: var(--text);
@@ -214,6 +254,49 @@ body {
 
 .btn:hover {
   transform: translateY(-1px);
+}
+
+.btn.disabled,
+.btn[aria-disabled='true'] {
+  opacity: 0.55;
+  pointer-events: none;
+  cursor: not-allowed;
+}
+
+.seo-copy {
+  background: color-mix(in srgb, var(--surface-alt) 90%, rgba(255, 255, 255, 0.05));
+  border-radius: 24px;
+  border: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
+  padding: clamp(1.75rem, 3vw, 2.5rem);
+  display: grid;
+  gap: 1rem;
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+
+.seo-copy h2,
+.seo-copy h3 {
+  color: var(--text);
+  margin: 0;
+}
+
+.seo-copy p {
+  margin: 0;
+}
+
+.seo-copy ul {
+  margin: 0;
+  padding-left: 1.25rem;
+  display: grid;
+  gap: 0.35rem;
+}
+
+.seo-copy code {
+  background: rgba(15, 23, 42, 0.55);
+  padding: 0.1rem 0.35rem;
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 0.95em;
 }
 
 @media (min-width: 840px) {
@@ -239,5 +322,9 @@ body {
 
   .actions {
     flex-direction: column;
+  }
+
+  .loading {
+    justify-content: center;
   }
 }
