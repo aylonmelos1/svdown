@@ -401,6 +401,10 @@ body {
   font-size: 0.95em;
 }
 
+.clear-action {
+  margin-top: 0.5rem;
+}
+
 .footer {
   text-align: center;
   color: var(--text-muted);

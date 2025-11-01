@@ -41,6 +41,8 @@ if (!resolverSection || !input || !resolveButton || !downloadLink || !videoEleme
   });
   const copyPixButton = document.getElementById('copy-pix');
   copyPixButton?.addEventListener('click', () => copyPixKey('suporte@svdown.app'));
+  const newDownloadButton = document.getElementById('new-download');
+  newDownloadButton?.addEventListener('click', resetForm);
 
   tryResolveFromQuery();
 
