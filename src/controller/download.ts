@@ -39,7 +39,7 @@ export const downloadVideoHandler = async (req: Request, res: Response) => {
             '-i', 'pipe:0',
             '-map_metadata', '-1',
             '-c', 'copy',
-            '-movflags', '+faststart',
+            '-movflags', 'frag_keyframe+empty_moov',
             '-f', 'mp4',
             'pipe:1',
         ]);
@@ -68,6 +68,10 @@ export const downloadVideoHandler = async (req: Request, res: Response) => {
             } else {
                 res.end();
             }
+        });
+
+        ffmpeg.stdin.on('error', error => {
+            log.error(error);
         });
 
         ffmpeg.on('close', code => {
