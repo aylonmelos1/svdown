@@ -110,6 +110,7 @@ body {
   font-size: 1rem;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.02);
   transition: border 0.2s ease, box-shadow 0.2s ease;
+  min-width: 0;
 }
 
 .input-group input:focus {
@@ -176,7 +177,7 @@ body {
 
 .video-meta {
   display: grid;
-  gap: 0.75rem;
+  gap: 1rem;
 }
 
 .video-meta h2 {
@@ -184,9 +185,25 @@ body {
   font-size: 1.5rem;
 }
 
-.video-meta p {
+.video-caption {
   margin: 0;
+  padding: 0.9rem 1.1rem;
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--surface-alt) 88%, rgba(255, 255, 255, 0.05));
+  border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
   color: var(--text-muted);
+  line-height: 1.6;
+  cursor: pointer;
+  transition: border 0.2s ease, transform 0.2s ease;
+  user-select: none;
+}
+
+.video-caption:hover,
+.video-caption:focus {
+  border-color: color-mix(in srgb, var(--accent) 60%, transparent);
+  transform: translateY(-1px);
+  color: var(--text);
+  outline: none;
 }
 
 .video-stats {
@@ -223,6 +240,22 @@ body {
   text-decoration: none;
   cursor: pointer;
   transition: transform 0.15s ease, box-shadow 0.2s ease;
+}
+
+.btn-link {
+  border: none;
+  background: none;
+  color: var(--accent-hover);
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+  margin-left: 0.4rem;
+}
+
+.btn-link:hover,
+.btn-link:focus {
+  text-decoration: underline;
+  outline: none;
 }
 
 .btn-spinner {
@@ -299,6 +332,25 @@ body {
   font-size: 0.95em;
 }
 
+.donation-blurb {
+  margin: 0;
+  padding: 1rem 1.15rem;
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--surface-alt) 92%, rgba(255, 255, 255, 0.05));
+  border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
+  color: var(--text-muted);
+  line-height: 1.6;
+  font-size: 0.95rem;
+}
+
+.donation-blurb code {
+  background: rgba(15, 23, 42, 0.55);
+  padding: 0.1rem 0.35rem;
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 0.95em;
+}
+
 .footer {
   text-align: center;
   color: var(--text-muted);
@@ -325,7 +377,8 @@ body {
   }
 
   .input-group {
-    flex-direction: column;
+    flex-wrap: nowrap;
+    gap: 0.55rem;
   }
 
   .actions {

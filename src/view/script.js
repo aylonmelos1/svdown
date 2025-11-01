@@ -28,6 +28,15 @@ if (!resolverSection || !input || !resolveButton || !downloadLink || !videoEleme
       resolveButton.click();
     }
   });
+  videoCaption.addEventListener('click', copyCaptionToClipboard);
+  videoCaption.addEventListener('keydown', event => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      copyCaptionToClipboard();
+    }
+  });
+  const copyPixButton = document.getElementById('copy-pix');
+  copyPixButton?.addEventListener('click', () => copyPixKey('suporte@svdown.app'));
 
   tryResolveFromQuery();
 
@@ -179,6 +188,71 @@ if (!resolverSection || !input || !resolveButton || !downloadLink || !videoEleme
     currentDownloadUrl = '';
     downloadLink.href = '#';
     setDownloadLoading(false);
+  }
+
+  function copyCaptionToClipboard() {
+    const text = videoCaption.textContent?.trim();
+    if (!text) {
+      showFeedback('Nenhuma legenda disponível para copiar.', true);
+      return;
+    }
+
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard
+        .writeText(text)
+        .then(() => showFeedback('Legenda copiada para a área de transferência!'))
+        .catch(() => fallbackCopy(text));
+    } else {
+      fallbackCopy(text);
+    }
+  }
+
+  function fallbackCopy(text) {
+    try {
+      const textarea = document.createElement('textarea');
+      textarea.value = text;
+      textarea.setAttribute('readonly', '');
+      textarea.style.position = 'absolute';
+      textarea.style.left = '-9999px';
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textarea);
+      showFeedback('Legenda copiada para a área de transferência!');
+    } catch (error) {
+      console.error(error);
+      showFeedback('Não foi possível copiar a legenda.', true);
+    }
+  }
+
+  function copyPixKey(value) {
+    if (!value) return;
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard
+        .writeText(value)
+        .then(() => showFeedback('Chave PIX copiada. Obrigado pelo apoio!'))
+        .catch(() => fallbackCopyPix(value));
+    } else {
+      fallbackCopyPix(value);
+    }
+  }
+
+  function fallbackCopyPix(value) {
+    try {
+      const textarea = document.createElement('textarea');
+      textarea.value = value;
+      textarea.setAttribute('readonly', '');
+      textarea.style.position = 'absolute';
+      textarea.style.left = '-9999px';
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textarea);
+      showFeedback('Chave PIX copiada. Obrigado pelo apoio!');
+    } catch (error) {
+      console.error(error);
+      showFeedback('Não foi possível copiar a chave PIX.', true);
+    }
   }
 
   function formatNumber(value) {
