@@ -12,11 +12,15 @@ const shareLink = document.getElementById('share-link');
 const loader = document.getElementById('loading-indicator');
 const loaderText = document.getElementById('loading-text');
 const resolveButton = document.getElementById('resolve-button');
+const captionBubble = document.getElementById('caption-hint');
+const toast = document.getElementById('toast');
+let toastTimer;
 
-if (!resolverSection || !input || !resolveButton || !downloadLink || !videoElement) {
+if (!resolverSection || !input || !resolveButton || !downloadLink || !videoElement || !videoCaption) {
   console.warn('SVDown: elementos essenciais não encontrados, script abortado.');
 } else {
   const { spinner: downloadSpinner, label: downloadLabel } = ensureDownloadButtonParts();
+  const captionHint = document.getElementById('caption-hint');
   const originalDownloadLabel = downloadLabel.textContent?.trim() || 'Baixar vídeo';
   let currentDownloadUrl = '';
 
@@ -90,10 +94,12 @@ if (!resolverSection || !input || !resolveButton || !downloadLink || !videoEleme
         const objectUrl = URL.createObjectURL(blob);
         triggerBrowserDownload(objectUrl);
         showFeedback('Download concluído! Confira sua pasta de downloads.');
+        showToast('Download concluído! Confira sua pasta de downloads.');
       })
       .catch(error => {
         console.error(error);
         showFeedback(error.message || 'Não foi possível baixar o vídeo.', true);
+        showToast('Não foi possível baixar o vídeo.', true);
       })
       .finally(() => {
         setDownloadLoading(false);
@@ -114,8 +120,12 @@ if (!resolverSection || !input || !resolveButton || !downloadLink || !videoEleme
       return;
     }
 
+    const fallbackUrl = videoInfo?.watermarkVideoUrl;
+
     videoElement.src = directVideoUrl;
-    currentDownloadUrl = `/api/download?url=${encodeURIComponent(directVideoUrl)}`;
+    const params = new URLSearchParams({ url: directVideoUrl });
+    if (fallbackUrl) params.set('fallback', fallbackUrl);
+    currentDownloadUrl = `/api/download?${params.toString()}`;
     downloadLink.href = currentDownloadUrl;
     setDownloadLoading(false);
 
@@ -194,13 +204,20 @@ if (!resolverSection || !input || !resolveButton || !downloadLink || !videoEleme
     const text = videoCaption.textContent?.trim();
     if (!text) {
       showFeedback('Nenhuma legenda disponível para copiar.', true);
+      showToast('Nenhuma legenda disponível para copiar.', true);
       return;
     }
 
     if (navigator.clipboard?.writeText) {
       navigator.clipboard
         .writeText(text)
-        .then(() => showFeedback('Legenda copiada para a área de transferência!'))
+        .then(() => {
+          showFeedback('Legenda copiada para a área de transferência!');
+          showCaptionBubble();
+          hideCaptionHint();
+          showCaptionBubble();
+          showToast('Legenda copiada!');
+        })
         .catch(() => fallbackCopy(text));
     } else {
       fallbackCopy(text);
@@ -219,9 +236,15 @@ if (!resolverSection || !input || !resolveButton || !downloadLink || !videoEleme
       document.execCommand('copy');
       document.body.removeChild(textarea);
       showFeedback('Legenda copiada para a área de transferência!');
+      hideCaptionHint();
+      showCaptionBubble();
+      hideCaptionHint();
+          showCaptionBubble();
+          showToast('Legenda copiada!');
     } catch (error) {
       console.error(error);
       showFeedback('Não foi possível copiar a legenda.', true);
+      showToast('Não foi possível copiar a legenda.', true);
     }
   }
 
@@ -230,7 +253,10 @@ if (!resolverSection || !input || !resolveButton || !downloadLink || !videoEleme
     if (navigator.clipboard?.writeText) {
       navigator.clipboard
         .writeText(value)
-        .then(() => showFeedback('Chave PIX copiada. Obrigado pelo apoio!'))
+        .then(() => {
+          showFeedback('Chave PIX copiada. Obrigado pelo apoio!');
+          showToast('Chave PIX copiada! Obrigado pelo apoio ❤');
+        })
         .catch(() => fallbackCopyPix(value));
     } else {
       fallbackCopyPix(value);
@@ -249,9 +275,11 @@ if (!resolverSection || !input || !resolveButton || !downloadLink || !videoEleme
       document.execCommand('copy');
       document.body.removeChild(textarea);
       showFeedback('Chave PIX copiada. Obrigado pelo apoio!');
+      showToast('Chave PIX copiada! Obrigado pelo apoio ❤');
     } catch (error) {
       console.error(error);
       showFeedback('Não foi possível copiar a chave PIX.', true);
+      showToast('Não foi possível copiar a chave PIX.', true);
     }
   }
 
@@ -272,5 +300,28 @@ if (!resolverSection || !input || !resolveButton || !downloadLink || !videoEleme
     if (!linkFromQuery) return;
     input.value = linkFromQuery;
     handleResolve(linkFromQuery);
+  }
+
+  function showCaptionBubble() {
+    if (!captionBubble) return;
+    captionBubble.textContent = 'Copiado!';
+    captionBubble.classList.add('show');
+    setTimeout(() => {
+      captionBubble.classList.remove('show');
+      captionBubble.textContent = 'Clique para copiar';
+    }, 1400);
+  }
+
+  function showToast(message, isError = false) {
+    if (!toast) return;
+    toast.textContent = message;
+    toast.classList.toggle('error', isError);
+    toast.classList.remove('hidden');
+    toast.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => {
+      toast.classList.remove('show');
+      setTimeout(() => toast.classList.add('hidden'), 250);
+    }, 2200);
   }
 }

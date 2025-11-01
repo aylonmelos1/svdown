@@ -208,17 +208,21 @@ body {
   font-size: 1.5rem;
 }
 
+
+.caption-wrapper {
+  position: relative;
+}
+
 .video-caption {
   margin: 0;
-  padding: 0.9rem 1.1rem;
+  padding: 1rem 1.15rem;
   border-radius: 16px;
-  background: color-mix(in srgb, var(--surface-alt) 88%, rgba(255, 255, 255, 0.05));
-  border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
+  background: color-mix(in srgb, var(--surface-alt) 90%, rgba(255, 255, 255, 0.05));
+  border: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
   color: var(--text-muted);
   line-height: 1.6;
   cursor: pointer;
-  transition: border 0.2s ease, transform 0.2s ease;
-  user-select: none;
+  transition: border 0.2s ease, transform 0.2s ease, color 0.2s ease;
 }
 
 .video-caption:hover,
@@ -228,6 +232,29 @@ body {
   color: var(--text);
   outline: none;
 }
+
+.caption-bubble {
+  position: absolute;
+  top: -12px;
+  right: 16px;
+  background: color-mix(in srgb, var(--accent) 70%, rgba(0, 0, 0, 0.2));
+  color: #0b1120;
+  padding: 0.35rem 0.7rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  box-shadow: 0 10px 20px rgba(15, 23, 42, 0.35);
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  pointer-events: none;
+}
+
+.caption-bubble.show {
+  opacity: 1;
+  transform: translateY(0);
+}
+
 
 .video-stats {
   list-style: none;
@@ -297,7 +324,7 @@ body {
 .btn.secondary {
   background: transparent;
   color: var(--text);
-  border-color: color-mix(in srgb, var(--border) 80%, transparent);
+  border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
 }
 
 .btn.small {
@@ -433,4 +460,10 @@ body {
 .toast.show {
   opacity: 1;
   transform: translate(-50%, -12px);
+}
+
+.toast.error {
+  background: rgba(248, 113, 113, 0.92);
+  color: #0b1120;
+  border-color: rgba(248, 113, 113, 0.75);
 }
