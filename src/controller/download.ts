@@ -1,10 +1,5 @@
 import axios from 'axios';
 import { Request, Response } from 'express';
-import { spawn } from 'node:child_process';
-import ffmpegPath from 'ffmpeg-static';
-import { promises as fsp } from 'node:fs';
-import os from 'node:os';
-import path from 'node:path';
 import log from '../log';
 
 export const downloadVideoHandler = async (req: Request, res: Response) => {
@@ -34,17 +29,15 @@ export const downloadVideoHandler = async (req: Request, res: Response) => {
 
     try {
         log.info(`Iniciando download bruto: ${targetUrl.toString()}`);
-        const response = await axios.get(targetUrl.toString(), {
-            responseType: 'stream',
-        });
-        const fileName = buildFileName(targetUrl);
+        const response = await fetchWithFallback(targetUrl, fallbackUrl);
+        const fileName = buildFileName(response.sourceUrl);
 
         res.setHeader('Content-Type', 'video/mp4');
         res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
         res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
         res.setHeader('X-Content-Type-Options', 'nosniff');
 
-        response.data.on('error', error => {
+        response.stream.on('error', error => {
             log.error(error);
             if (!res.headersSent) {
                 res.status(502).json({ error: 'Falha ao baixar o vídeo da Shopee' });
@@ -54,33 +47,31 @@ export const downloadVideoHandler = async (req: Request, res: Response) => {
         });
 
         req.on('close', () => {
-            response.data.destroy();
+            response.stream.destroy();
         });
 
-        response.data.pipe(res);
+        response.stream.pipe(res);
     } catch (error) {
         log.error(error);
         res.status(502).json({ error: 'Falha ao baixar o vídeo da Shopee' });
     }
 };
 
-async function fetchVideoStream(primary: URL, fallback?: URL) {
+async function fetchWithFallback(primary: URL, fallback?: URL) {
     try {
         const primaryResponse = await axios.get(primary.toString(), {
             responseType: 'stream',
         });
         log.info('Download primário bem-sucedido');
-        return { stream: primaryResponse.data, finalUrl: primary };
+        return { stream: primaryResponse.data, sourceUrl: primary };
     } catch (error) {
         log.warn(`Falha no download primário: ${error instanceof Error ? error.message : error}`);
-        if (fallback) {
-            const fallbackResponse = await axios.get(fallback.toString(), {
-                responseType: 'stream',
-            });
-            log.info('Fallback utilizado com sucesso');
-            return { stream: fallbackResponse.data, finalUrl: fallback };
-        }
-        throw error;
+        if (!fallback) throw error;
+        const fallbackResponse = await axios.get(fallback.toString(), {
+            responseType: 'stream',
+        });
+        log.info('Fallback utilizado com sucesso');
+        return { stream: fallbackResponse.data, sourceUrl: fallback };
     }
 }
 

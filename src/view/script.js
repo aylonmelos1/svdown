@@ -209,9 +209,9 @@ if (!resolverSection || !input || !resolveButton || !downloadLink || !videoEleme
     showFeedback('Pronto para baixar outro vídeo!');
     showToast('Pronto para baixar outro vídeo!');
     if (captionBubble) {
-      captionBubble.textContent = 'Clique para copiar';
-      captionBubble.classList.add('show');
       captionBubble.classList.remove('hidden');
+      captionBubble.classList.remove('show');
+      captionBubble.textContent = 'Clique para copiar';
     }
   }
 
@@ -321,8 +321,8 @@ if (!resolverSection || !input || !resolveButton || !downloadLink || !videoEleme
     clearTimeout(captionBubbleTimer);
     captionBubbleTimer = setTimeout(() => {
       if (!captionBubble) return;
+      captionBubble.classList.remove('show');
       captionBubble.textContent = 'Clique para copiar';
-      captionBubble.classList.add('show');
     }, 1400);
   }
 
