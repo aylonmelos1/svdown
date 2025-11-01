@@ -202,6 +202,19 @@ if (!resolverSection || !input || !resolveButton || !downloadLink || !videoEleme
     setDownloadLoading(false);
   }
 
+  function resetForm() {
+    input.value = '';
+    resetDownloadLink();
+    resultSection.classList.add('hidden');
+    showFeedback('Pronto para baixar outro vídeo!');
+    showToast('Pronto para baixar outro vídeo!');
+    if (captionBubble) {
+      captionBubble.textContent = 'Clique para copiar';
+      captionBubble.classList.add('show');
+      captionBubble.classList.remove('hidden');
+    }
+  }
+
   function copyCaptionToClipboard() {
     const text = videoCaption.textContent?.trim();
     if (!text) {
@@ -215,8 +228,6 @@ if (!resolverSection || !input || !resolveButton || !downloadLink || !videoEleme
         .writeText(text)
         .then(() => {
           showFeedback('Legenda copiada para a área de transferência!');
-          showCaptionBubble();
-          hideCaptionHint();
           showCaptionBubble();
           showToast('Legenda copiada!');
         })
@@ -238,11 +249,8 @@ if (!resolverSection || !input || !resolveButton || !downloadLink || !videoEleme
       document.execCommand('copy');
       document.body.removeChild(textarea);
       showFeedback('Legenda copiada para a área de transferência!');
-      hideCaptionHint();
       showCaptionBubble();
-      hideCaptionHint();
-          showCaptionBubble();
-          showToast('Legenda copiada!');
+      showToast('Legenda copiada!');
     } catch (error) {
       console.error(error);
       showFeedback('Não foi possível copiar a legenda.', true);
@@ -304,13 +312,17 @@ if (!resolverSection || !input || !resolveButton || !downloadLink || !videoEleme
     handleResolve(linkFromQuery);
   }
 
+  let captionBubbleTimer;
+
   function showCaptionBubble() {
     if (!captionBubble) return;
     captionBubble.textContent = 'Copiado!';
     captionBubble.classList.add('show');
-    setTimeout(() => {
-      captionBubble.classList.remove('show');
+    clearTimeout(captionBubbleTimer);
+    captionBubbleTimer = setTimeout(() => {
+      if (!captionBubble) return;
       captionBubble.textContent = 'Clique para copiar';
+      captionBubble.classList.add('show');
     }, 1400);
   }
 
