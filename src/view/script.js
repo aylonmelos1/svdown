@@ -1,0 +1,88 @@
+const form = document.getElementById('resolver-form');
+const input = document.getElementById('link-input');
+const feedback = document.getElementById('feedback');
+const resultSection = document.getElementById('result-section');
+const videoElement = document.getElementById('video-player');
+const creatorName = document.getElementById('creator-name');
+const videoCaption = document.getElementById('video-caption');
+const likeCount = document.getElementById('like-count');
+const commentCount = document.getElementById('comment-count');
+const downloadLink = document.getElementById('download-link');
+const shareLink = document.getElementById('share-link');
+form.addEventListener('submit', async event => {
+  event.preventDefault();
+
+  const link = input.value.trim();
+  if (!link) {
+    showFeedback('Informe um link da Shopee.', true);
+    return;
+  }
+
+  showFeedback('Resolvendo link…');
+  toggleForm(false);
+
+  try {
+    const response = await fetch('/api/resolve', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ link }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data?.error || 'Não foi possível resolver o link.');
+    }
+
+    renderResult(data);
+    showFeedback('Link resolvido com sucesso!');
+  } catch (error) {
+    console.error(error);
+    showFeedback(error.message || 'Erro ao resolver link.', true);
+    resultSection.classList.add('hidden');
+  } finally {
+    toggleForm(true);
+  }
+});
+
+function renderResult(data) {
+  const { pageProps, directVideoUrl, shareUrl } = data;
+  const videoInfo = pageProps?.mediaInfo?.video;
+  const userInfo = pageProps?.userInfo || pageProps?.userDetail;
+  const counts = pageProps?.mediaInfo?.count;
+
+  if (!directVideoUrl) {
+    showFeedback('Vídeo não encontrado para este link.', true);
+    resultSection.classList.add('hidden');
+    return;
+  }
+
+  videoElement.src = directVideoUrl;
+  const directDownloadUrl = `/api/download?url=${encodeURIComponent(directVideoUrl)}`;
+  downloadLink.href = directDownloadUrl;
+  downloadLink.download = `shopee-video-${Date.now()}.mp4`;
+
+  shareLink.href = shareUrl;
+
+  creatorName.textContent = userInfo?.videoUserName || 'Criador desconhecido';
+  videoCaption.textContent = videoInfo?.caption || 'Sem descrição definida.';
+  likeCount.textContent = formatNumber(counts?.likeCount);
+  commentCount.textContent = formatNumber(counts?.commentCount);
+
+  resultSection.classList.remove('hidden');
+}
+
+function showFeedback(message, isError = false) {
+  feedback.textContent = message;
+  feedback.classList.toggle('error', isError);
+  feedback.classList.remove('hidden');
+}
+
+function toggleForm(enabled) {
+  form.querySelector('button[type="submit"]').disabled = !enabled;
+  input.disabled = !enabled;
+}
+
+function formatNumber(value) {
+  return typeof value === 'number' ? value.toLocaleString('pt-BR') : '0';
+}

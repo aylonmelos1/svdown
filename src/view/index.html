@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SVDown · Baixar vídeo da Shopee</title>
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
+</head>
+
+<body>
+    <main class="container">
+        <header class="hero">
+            <h1>SVDown</h1>
+            <p>Cole o link da Shopee (short ou universal) e veja o vídeo sem marca d&rsquo;água.</p>
+        </header>
+
+        <form id="resolver-form" class="resolver-form">
+            <label for="link-input">Link da Shopee</label>
+            <div class="input-group">
+                <input id="link-input" type="url" name="link" placeholder="https://br.shp.ee/..." required autocomplete="off" />
+                <button type="submit">Resolver</button>
+            </div>
+            <p id="feedback" class="feedback hidden"></p>
+        </form>
+
+        <section id="result-section" class="result hidden">
+            <article class="video-card">
+                <video id="video-player" controls playsinline></video>
+                <div class="video-meta">
+                    <h2 id="creator-name"></h2>
+                    <p id="video-caption"></p>
+                    <ul class="video-stats">
+                        <li><span id="like-count">0</span> curtidas</li>
+                        <li><span id="comment-count">0</span> comentários</li>
+                    </ul>
+                    <div class="actions">
+                        <a id="download-link" class="btn secondary" download>Baixar vídeo</a>
+                        <a id="share-link" class="btn" target="_blank" rel="noopener">Abrir no Shopee</a>
+                    </div>
+                </div>
+            </article>
+        </section>
+    </main>
+
+    <template id="error-template">
+      <p class="feedback error"></p>
+    </template>
+
+    <script src="script.js" type="module"></script>
+</body>
+
+</html>
