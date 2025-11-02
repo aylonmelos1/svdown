@@ -399,9 +399,7 @@ body {
     font-size: 0.95em;
 }
 
-.clear-action {
-    margin-top: 0.5rem;
-}
+/* .clear-action { margin-top: 0.5rem;} */
 
 .btn.secondary.clear-action {
     background-color: #334155;
