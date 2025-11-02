@@ -128,7 +128,7 @@ if (!resolverSection || !input || !resolveButton || !downloadLink || !videoEleme
             shareUrl
         } = data;
         const videoInfo = pageProps?.mediaInfo?.video;
-        const userInfo = pageProps?.mediaInfo?.userInfo || pageProps?.userDetail;
+        const userInfo = pageProps?.mediaInfo?.userInfo || "";
         const counts = pageProps?.mediaInfo?.count;
 
         if (!directVideoUrl) {
