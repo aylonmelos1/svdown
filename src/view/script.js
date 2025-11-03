@@ -424,7 +424,7 @@ if (!resolverSection || !input || !resolveButton || !downloadLink || !videoEleme
 
     let captionBubbleTimer;
 
-    function showCaptionBubble() {
+function showCaptionBubble() {
         if (!captionBubble) return;
         captionBubble.textContent = 'Copiado!';
         captionBubble.classList.add('show');
