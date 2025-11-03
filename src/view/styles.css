@@ -55,8 +55,8 @@ body {
 }
 
 .hero-logo {
-    width: clamp(40px, 6vw, 52px);
-    height: clamp(40px, 6vw, 52px);
+    width: clamp(80px, 6vw, 52px);
+    height: clamp(80px, 6vw, 52px);
 }
 
 
