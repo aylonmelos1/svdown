@@ -401,6 +401,7 @@ if (!resolverSection || !input || !resolveButton || !resultSection || !videoElem
         genericVideoButtonCtrl?.reset();
         genericAudioButtonCtrl?.reset();
         shareLink?.classList.add('hidden');
+        updateUrlWithQuery('');
         showFeedback('Pronto para baixar outro vídeo!');
         showToast('Pronto para baixar outro vídeo!');
         if (captionBubble) {
@@ -550,7 +551,11 @@ if (!resolverSection || !input || !resolveButton || !resultSection || !videoElem
     function updateUrlWithQuery(link) {
         if (!window.history || typeof window.history.replaceState !== 'function') return;
         const current = new URL(window.location.href);
-        current.searchParams.set('link', link);
+        if (link) {
+            current.searchParams.set('link', link);
+        } else {
+            current.searchParams.delete('link');
+        }
         window.history.replaceState({}, '', current.toString());
     }
 
