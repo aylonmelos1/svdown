@@ -136,11 +136,10 @@ async function sendFile(res: Response, filePath: string, fileName: string, conte
 }
 
 export const downloadVideoHandler = async (req: Request, res: Response) => {
-    const { url, fallback, type, filename } = req.query as {
+    const { url, fallback, type } = req.query as {
         url?: string;
         fallback?: string | string[];
         type?: string;
-        filename?: string;
     };
 
     if (!url) {
@@ -154,6 +153,8 @@ export const downloadVideoHandler = async (req: Request, res: Response) => {
     const fallbackList = Array.isArray(fallback) ? fallback : fallback ? [fallback] : [];
     const candidates = [url, ...fallbackList].filter(Boolean);
     const mediaType: 'video' | 'audio' = type === 'audio' ? 'audio' : 'video';
+    const extension = mediaType === 'audio' ? '.mp3' : '.mp4';
+    const downloadFileName = buildTimestampedFileName(extension);
 
     let tempDir: string | undefined;
     try {
@@ -165,23 +166,20 @@ export const downloadVideoHandler = async (req: Request, res: Response) => {
         const usedUrl = await downloadWithFallback(candidates, tempInputPath);
         log.info(`Download complete from ${usedUrl}. Starting ffmpeg processing.`);
 
-        const targetFileName = resolveFileName(usedUrl, filename, mediaType);
-
         try {
             if (mediaType === 'audio') {
                 await convertToMp3(tempInputPath, tempOutputPath);
-                await sendFile(res, tempOutputPath, ensureExtension(targetFileName, '.mp3'), 'audio/mpeg');
+                await sendFile(res, tempOutputPath, downloadFileName, 'audio/mpeg');
             } else {
                 await cleanupMetadata(tempInputPath, tempOutputPath);
-                await sendFile(res, tempOutputPath, ensureExtension(targetFileName, '.mp4'), 'video/mp4');
+                await sendFile(res, tempOutputPath, downloadFileName, 'video/mp4');
             }
         } catch (error) {
             log.error('Failed to process media, sending original file.', error);
             res.setHeader(mediaType === 'video' ? 'X-Metadata-Cleaned' : 'X-Audio-Transcoded', 'false');
 
             const contentType = mediaType === 'audio' ? 'application/octet-stream' : 'video/mp4';
-            const fallbackName = resolveOriginalFileName(usedUrl, targetFileName);
-            await sendFile(res, tempInputPath, fallbackName, contentType);
+            await sendFile(res, tempInputPath, downloadFileName, contentType);
         }
 
     } catch (error) {
@@ -198,78 +196,17 @@ export const downloadVideoHandler = async (req: Request, res: Response) => {
     }
 };
 
-function ensureExtension(fileName: string, extension: string) {
-    if (!extension) return fileName;
-    const normalizedExt = extension.startsWith('.') ? extension : `.${extension}`;
-    const currentExt = path.extname(fileName);
-    if (!currentExt) {
-        return `${fileName}${normalizedExt}`;
-    }
-    if (currentExt.toLowerCase() !== normalizedExt.toLowerCase()) {
-        return `${fileName.slice(0, -currentExt.length)}${normalizedExt}`;
-    }
-    return fileName;
-}
-
-function resolveFileName(url: string, provided: string | undefined, mediaType: 'video' | 'audio') {
-    const defaultBase = mediaType === 'audio' ? 'audio' : 'video';
-    const extension = mediaType === 'audio' ? '.mp3' : '.mp4';
-    const providedName = cleanFileNameCandidate(provided);
-    if (providedName) {
-        return ensureExtension(providedName, extension);
-    }
-
-    const derivedName = cleanFileNameCandidate(extractFileName(url));
-    if (derivedName) {
-        return ensureExtension(derivedName, extension);
-    }
-
-    return `${defaultBase}${extension}`;
-}
-
-function resolveOriginalFileName(url: string, fallback: string) {
-    const fallbackName = cleanFileNameCandidate(fallback) || 'download';
-    const fallbackExt = path.extname(fallbackName) || '.bin';
-    const originalCandidate = cleanFileNameCandidate(extractFileName(url));
-    if (!originalCandidate) {
-        return ensureExtension(fallbackName, fallbackExt);
-    }
-    const originalExt = path.extname(originalCandidate);
-    if (!originalExt) {
-        return ensureExtension(originalCandidate, fallbackExt);
-    }
-    return originalCandidate;
-}
-
-function extractFileName(url: string): string | undefined {
-    try {
-        const parsed = new URL(url);
-        const lastSegment = parsed.pathname.split('/').filter(Boolean).pop();
-        return lastSegment || undefined;
-    } catch {
-        return undefined;
-    }
-}
-
-function cleanFileNameCandidate(value?: string | null) {
-    if (!value) return '';
-    const decoded = safeDecodeURIComponent(value);
-    const basePart = decoded.split(/[?#]/)[0];
-    const trimmed = basePart.trim();
-    if (!trimmed) return '';
-    const invalidChars = /[<>:"/\\|?*\x00-\x1F]/g;
-    const collapsedDots = trimmed.replace(/\.\.+/g, '.');
-    const sanitized = collapsedDots.replace(invalidChars, '-');
-    const cleaned = sanitized.replace(/\s{2,}/g, ' ').trim();
-    return cleaned.replace(/^[-.]+|[-.]+$/g, '');
-}
-
-function safeDecodeURIComponent(value: string) {
-    try {
-        return decodeURIComponent(value);
-    } catch {
-        return value;
-    }
+function buildTimestampedFileName(extension: string) {
+    const ext = extension.startsWith('.') ? extension : `.${extension}`;
+    const now = new Date();
+    const pad = (value: number) => value.toString().padStart(2, '0');
+    const timestamp = [
+        now.getUTCFullYear(),
+        pad(now.getUTCMonth() + 1),
+        pad(now.getUTCDate())
+    ].join('');
+    const timePart = [pad(now.getUTCHours()), pad(now.getUTCMinutes()), pad(now.getUTCSeconds())].join('');
+    return `SVDown-${timestamp}-${timePart}${ext}`;
 }
 
 function isValidHttpUrl(value: string) {

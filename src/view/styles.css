@@ -72,10 +72,11 @@ body {
 .hero h1 {
     margin: 0;
     color: var(--text-muted);
-    font-size: clamp(1.0rem, 2.4vw, 1.3rem);
+    font-size: clamp(1.35rem, 2.4vw, 1.5rem);
     max-width: 36rem;
     font-weight: 600;
     line-height: 1.35;
+    text-decoration: none;
 }
 
 .brand-sv {
@@ -91,35 +92,6 @@ body {
     color: var(--text-muted);
     font-size: 1.025rem;
     max-width: 28rem;
-}
-
-.hero-subtitle {
-    font-size: clamp(1rem, 1.8vw, 1.2rem);
-    line-height: 1.6;
-    color: rgba(226, 232, 240, 0.9);
-}
-
-.primary-nav {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.75rem 1.25rem;
-    margin: 0.5rem 0 1rem;
-    padding: 0;
-}
-
-.primary-nav a {
-    color: rgba(226, 232, 240, 0.85);
-    font-size: 0.95rem;
-    font-weight: 500;
-    text-decoration: none;
-    letter-spacing: 0.01em;
-    transition: color 0.2s ease, text-decoration 0.2s ease;
-}
-
-.primary-nav a:hover,
-.primary-nav a:focus-visible {
-    color: #fff;
-    text-decoration: underline;
 }
 
 .noscript-message {
@@ -714,11 +686,6 @@ body {
     .hero p {
         font-size: 0.95rem;
         max-width: 100%;
-    }
-
-    .primary-nav {
-        flex-direction: column;
-        gap: 0.5rem;
     }
 
     .input-group {

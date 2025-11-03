@@ -338,7 +338,10 @@ if (!resolverSection || !input || !resolveButton || !resultSection || !videoElem
 
             const blob = await response.blob();
             const objectUrl = URL.createObjectURL(blob);
-            triggerBrowserDownload(objectUrl, selection.fileName, mediaType);
+            const contentDisposition = response.headers.get('Content-Disposition');
+            const serverFileName = extractFileNameFromContentDisposition(contentDisposition);
+            const downloadName = serverFileName || buildFallbackFileName(selection.fileName, mediaType);
+            triggerBrowserDownload(objectUrl, downloadName, mediaType);
             showFeedback('Download concluído! Confira sua pasta de downloads.');
             showToast('Download concluído! Confira sua pasta de downloads.');
 
@@ -379,9 +382,6 @@ if (!resolverSection || !input || !resolveButton || !resultSection || !videoElem
     function buildDownloadRequest(selection, mediaType) {
         const params = new URLSearchParams();
         params.set('url', selection.url);
-        if (selection.fileName) {
-            params.set('filename', selection.fileName);
-        }
         if (Array.isArray(selection.fallbackUrls)) {
             selection.fallbackUrls.filter(Boolean).forEach(url => params.append('fallback', url));
         }
@@ -598,14 +598,83 @@ if (!resolverSection || !input || !resolveButton || !resultSection || !videoElem
 
     function triggerBrowserDownload(objectUrl, fileName, mediaType) {
         const anchor = document.createElement('a');
-        const extension = mediaType === 'audio' ? '.mp3' : '.mp4';
-        const fallbackName = fileName || `download-${Date.now()}${extension}`;
+        const fallbackName = fileName || buildFallbackFileName('', mediaType);
         anchor.href = objectUrl;
         anchor.download = fallbackName;
         document.body.appendChild(anchor);
         anchor.click();
         anchor.remove();
         setTimeout(() => URL.revokeObjectURL(objectUrl), 0);
+    }
+
+    function extractFileNameFromContentDisposition(headerValue) {
+        if (!headerValue) return '';
+
+        const filenameStarMatch = headerValue.match(/filename\*\s*=\s*(?:UTF-8'')?([^;]+)/i);
+        if (filenameStarMatch && filenameStarMatch[1]) {
+            const candidate = decodeAndSanitizeFileName(filenameStarMatch[1]);
+            if (candidate) return candidate;
+        }
+
+        const filenameMatch = headerValue.match(/filename\s*=\s*\"?([^\";]+)\"?/i);
+        if (filenameMatch && filenameMatch[1]) {
+            const candidate = decodeAndSanitizeFileName(filenameMatch[1]);
+            if (candidate) return candidate;
+        }
+
+        return '';
+    }
+
+    function buildFallbackFileName(originalName, mediaType) {
+        const extension = mediaType === 'audio' ? '.mp3' : '.mp4';
+        const sanitizedOriginal = sanitizeFileName(originalName || '');
+        if (sanitizedOriginal) {
+            return ensureExtension(sanitizedOriginal, extension);
+        }
+        const now = new Date();
+        const pad = value => value.toString().padStart(2, '0');
+        const timestamp = [
+            now.getUTCFullYear(),
+            pad(now.getUTCMonth() + 1),
+            pad(now.getUTCDate()),
+            pad(now.getUTCHours()),
+            pad(now.getUTCMinutes()),
+            pad(now.getUTCSeconds())
+        ].join('');
+        return `SVDown-${timestamp}${extension}`;
+    }
+
+    function decodeAndSanitizeFileName(rawValue) {
+        if (!rawValue) return '';
+        const trimmed = rawValue.trim().replace(/^\"|\"$/g, '');
+        if (!trimmed) return '';
+        let decoded = trimmed;
+        try {
+            decoded = decodeURIComponent(trimmed);
+        } catch (_) {
+            decoded = trimmed;
+        }
+        return sanitizeFileName(decoded);
+    }
+
+    function sanitizeFileName(value) {
+        if (!value) return '';
+        return value
+            .replace(/[<>:"/\\|?*\x00-\x1F]/g, '-')
+            .replace(/\s{2,}/g, ' ')
+            .replace(/\.\.+/g, '.')
+            .replace(/^[-.]+|[-.]+$/g, '')
+            .trim();
+    }
+
+    function ensureExtension(name, extension) {
+        if (!extension) return name;
+        const normalizedExt = extension.startsWith('.') ? extension : `.${extension}`;
+        if (!name) return `download${normalizedExt}`;
+        if (name.toLowerCase().endsWith(normalizedExt.toLowerCase())) {
+            return name;
+        }
+        return `${name}${normalizedExt}`;
     }
 }
 
