@@ -130,13 +130,51 @@ export class MetaService implements ResolveService {
     private extractMedia(html: string): { videoUrl?: string; thumbnail?: string; qualityLabel?: string } {
         if (!html) return {};
         const $ = cheerio.load(html);
-        const videoAnchor = $('.download-items__btn a').first();
-        const img = $('.download-items__thumb img').first();
+
+        const selectors = [
+            '.download-items__btn a[href]',
+            '.download-link a.button[href*="rapidcdn"]',
+            'a[href*="rapidcdn"]',
+        ];
+        let videoAnchor: cheerio.Cheerio<cheerio.Element> | undefined;
+        for (const selector of selectors) {
+            const candidate = $(selector).filter((_, el) => Boolean($(el).attr('href'))).first();
+            if (candidate.length) {
+                videoAnchor = candidate;
+                break;
+            }
+        }
+
+        if (!videoAnchor || !videoAnchor.length) {
+            return {
+                thumbnail: this.extractThumbnail($),
+            };
+        }
+
+        let qualityLabel = videoAnchor.text().trim();
+        const trQuality = videoAnchor.closest('tr').find('.video-quality').first().text().trim();
+        if (trQuality) {
+            qualityLabel = trQuality;
+        }
+
         return {
             videoUrl: videoAnchor.attr('href') || undefined,
-            thumbnail: img.attr('src') || undefined,
-            qualityLabel: videoAnchor.text().trim() || undefined,
+            thumbnail: this.extractThumbnail($),
+            qualityLabel: qualityLabel || undefined,
         };
+    }
+
+    private extractThumbnail($: cheerio.CheerioAPI): string | undefined {
+        const thumbSources = [
+            '.download-items__thumb img',
+            '.download-link img',
+            'img[src*="rapidcdn"]',
+        ];
+        for (const selector of thumbSources) {
+            const src = $(selector).first().attr('src');
+            if (src) return src;
+        }
+        return undefined;
     }
 
     private buildTitle(url: URL): string {
