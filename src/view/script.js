@@ -1,3 +1,14 @@
+// === Analytics helpers (GTM) ===
+window.dataLayer = window.dataLayer || [];
+function dl(eventName, params = {}) {
+  window.dataLayer.push({ event: eventName, ...params });
+}
+async function sha256Hex(str){
+  const enc = new TextEncoder().encode(str);
+  const buf = await crypto.subtle.digest('SHA-256', enc);
+  return [...new Uint8Array(buf)].map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+// ===============================
 
 const resolverSection = document.getElementById('resolver-form');
 const input = document.getElementById('link-input');
@@ -27,6 +38,7 @@ if (!resolverSection || !input || !resolveButton || !downloadLink || !videoEleme
     const captionHint = document.getElementById('caption-hint');
     const originalDownloadLabel = downloadLabel.textContent?.trim() || 'Baixar vídeo';
     let currentDownloadUrl = '';
+    let resolveStartTime = 0;
 
     resolveButton.addEventListener('click', () => handleResolve(input.value.trim()));
     downloadLink.addEventListener('click', handleDownload);
@@ -51,74 +63,139 @@ if (!resolverSection || !input || !resolveButton || !downloadLink || !videoEleme
 
     tryResolveFromQuery();
 
-    function handleResolve(link) {
+    // === Atualizado para async para podermos gerar hash e medir tempo ===
+    async function handleResolve(link) {
         if (!link) {
             showFeedback('Informe um link da Shopee.', true);
             return;
         }
 
+        // métricas: início de resolução
+        resolveStartTime = performance.now();
+        let linkHash = '';
+        let domain = '';
+        let hasQuery = false;
+        try {
+            linkHash = await sha256Hex(link);
+            const u = new URL(link);
+            domain = u.hostname;
+            hasQuery = !!u.search;
+        } catch (_) {
+            // URL inválida não quebra o fluxo; ainda assim seguimos sem domain/hasQuery
+        }
+        dl('paste_link', { link_hash: linkHash, domain, has_query: hasQuery, ts: Date.now() });
+
         setLoading(true, 'Resolvendo link...');
         showFeedback('Resolvendo link...');
 
-        fetch('/api/resolve', {
+        try {
+            const response = await fetch('/api/resolve', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    link
-                }),
-            })
-            .then(async response => {
-                const data = await response.json();
-                if (!response.ok) {
-                    throw new Error(data?.error || 'Não foi possível resolver o link.');
-                }
-                renderResult(data);
-                showFeedback('Link resolvido com sucesso!');
-                updateUrlWithQuery(link);
-            })
-            .catch(error => {
-                console.error(error);
-                showFeedback(error.message || 'Erro ao resolver link.', true);
-                resultSection.classList.add('hidden');
-            })
-            .finally(() => setLoading(false));
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ link }),
+            });
+
+            const data = await response.json();
+            if (!response.ok) {
+                const responseTimeMs = Math.round(performance.now() - resolveStartTime);
+                dl('resolve_error', {
+                    link_hash: linkHash,
+                    error_message: (data && data.error) || 'Não foi possível resolver o link.',
+                    response_time_ms: responseTimeMs
+                });
+                throw new Error(data?.error || 'Não foi possível resolver o link.');
+            }
+
+            renderResult(data);
+            showFeedback('Link resolvido com sucesso!');
+            updateUrlWithQuery(link);
+
+            // métricas: sucesso
+            const videoInfo = data?.pageProps?.mediaInfo?.video || {};
+            const userInfo = data?.pageProps?.mediaInfo?.userInfo || {};
+            const responseTimeMs = Math.round(performance.now() - resolveStartTime);
+
+            dl('resolve_success', {
+                link_hash: linkHash,
+                has_caption: !!videoInfo.caption,
+                duration: videoInfo.duration || null,
+                author_name: userInfo.videoUserName || 'Desconhecido',
+                response_time_ms: responseTimeMs
+            });
+
+        } catch (error) {
+            console.error(error);
+            showFeedback(error.message || 'Erro ao resolver link.', true);
+            resultSection.classList.add('hidden');
+        } finally {
+            setLoading(false);
+        }
     }
 
-    function handleDownload(event) {
+    // === Atualizado para async para gerar hash e medir eventos ===
+    async function handleDownload(event) {
         if (!currentDownloadUrl) return;
         event.preventDefault();
+
+        // métrica: clique no download
+        try {
+            const dlHash = await sha256Hex(currentDownloadUrl);
+            dl('download_click', {
+                link_hash: dlHash,
+                ts: Date.now()
+                // Se você tiver 'format' ou 'quality', inclua aqui.
+            });
+        } catch (_) {}
 
         setLoading(true, 'Preparando download...');
         setDownloadLoading(true);
         showFeedback('Seu vídeo está sendo preparado. Isso pode levar alguns instantes...');
 
-        fetch(currentDownloadUrl)
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error('Falha ao iniciar download.');
-                }
-                if (response.headers.get('X-Metadata-Cleaned') === 'false') {
-                    showToast('Não foi possível remover os metadados do vídeo.', true);
-                }
-                return response.blob();
-            })
-            .then(blob => {
-                const objectUrl = URL.createObjectURL(blob);
-                triggerBrowserDownload(objectUrl);
-                showFeedback('Download concluído! Confira sua pasta de downloads.');
-                showToast('Download concluído! Confira sua pasta de downloads.');
-            })
-            .catch(error => {
-                console.error(error);
-                showFeedback(error.message || 'Não foi possível baixar o vídeo.', true);
-                showToast('Não foi possível baixar o vídeo.', true);
-            })
-            .finally(() => {
-                setDownloadLoading(false);
-                setLoading(false);
+        try {
+            const response = await fetch(currentDownloadUrl);
+            if (!response.ok) {
+                const dlHash = await sha256Hex(currentDownloadUrl);
+                dl('download_error', {
+                    link_hash: dlHash,
+                    error_message: 'Falha ao iniciar download.'
+                });
+                throw new Error('Falha ao iniciar download.');
+            }
+            if (response.headers.get('X-Metadata-Cleaned') === 'false') {
+                showToast('Não foi possível remover os metadados do vídeo.', true);
+            }
+
+            const blob = await response.blob();
+            const objectUrl = URL.createObjectURL(blob);
+            triggerBrowserDownload(objectUrl);
+            showFeedback('Download concluído! Confira sua pasta de downloads.');
+            showToast('Download concluído! Confira sua pasta de downloads.');
+
+            // métrica: download completo
+            const dlHash = await sha256Hex(currentDownloadUrl);
+            dl('download_complete', {
+                link_hash: dlHash,
+                success: true,
+                bytes_estimated: blob.size
             });
+
+        } catch (error) {
+            console.error(error);
+            showFeedback(error.message || 'Não foi possível baixar o vídeo.', true);
+            showToast('Não foi possível baixar o vídeo.', true);
+
+            // métrica: erro no download (se já não foi enviado acima)
+            try {
+                const dlHash = await sha256Hex(currentDownloadUrl);
+                dl('download_error', {
+                    link_hash: dlHash,
+                    error_message: error.message || 'unknown'
+                });
+            } catch (_) {}
+        } finally {
+            setDownloadLoading(false);
+            setLoading(false);
+        }
     }
 
     function renderResult(data) {
@@ -141,9 +218,7 @@ if (!resolverSection || !input || !resolveButton || !downloadLink || !videoEleme
         const fallbackUrl = videoInfo?.watermarkVideoUrl;
 
         videoElement.src = directVideoUrl;
-        const params = new URLSearchParams({
-            url: directVideoUrl
-        });
+        const params = new URLSearchParams({ url: directVideoUrl });
         if (fallbackUrl) params.set('fallback', fallbackUrl);
         currentDownloadUrl = `/api/download?${params.toString()}`;
         downloadLink.href = currentDownloadUrl;
@@ -178,10 +253,7 @@ if (!resolverSection || !input || !resolveButton || !downloadLink || !videoEleme
             downloadLink.append(label);
         }
 
-        return {
-            spinner,
-            label
-        };
+        return { spinner, label };
     }
 
     function showFeedback(message, isError = false) {
@@ -237,7 +309,8 @@ if (!resolverSection || !input || !resolveButton || !downloadLink || !videoEleme
         }
     }
 
-    function copyCaptionToClipboard() {
+    // === Atualizado para async para registrar 'caption_copied' ===
+    async function copyCaptionToClipboard() {
         const text = videoCaption.textContent?.trim();
         if (!text) {
             showFeedback('Nenhuma legenda disponível para copiar.', true);
@@ -245,17 +318,32 @@ if (!resolverSection || !input || !resolveButton || !downloadLink || !videoEleme
             return;
         }
 
+        const pushCopiedEvent = async () => {
+            try {
+                if (currentDownloadUrl) {
+                    const dlHash = await sha256Hex(currentDownloadUrl);
+                    dl('caption_copied', { link_hash: dlHash });
+                } else {
+                    dl('caption_copied', {});
+                }
+            } catch (_) {
+                dl('caption_copied', {});
+            }
+        };
+
         if (navigator.clipboard?.writeText) {
             navigator.clipboard
                 .writeText(text)
-                .then(() => {
+                .then(async () => {
                     showFeedback('Legenda copiada para a área de transferência!');
                     showCaptionBubble();
                     showToast('Legenda copiada!');
+                    await pushCopiedEvent();
                 })
                 .catch(() => fallbackCopy(text));
         } else {
             fallbackCopy(text);
+            await pushCopiedEvent();
         }
     }
 
