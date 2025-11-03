@@ -33,7 +33,7 @@ const loaderText = document.getElementById('loading-text');
 const resolveButton = document.getElementById('resolve-button');
 const captionBubble = document.getElementById('caption-hint');
 const toast = document.getElementById('toast');
-const copyPixButton = document.getElementById('copy-pix');
+const copyPixButtons = document.querySelectorAll('[data-pix-key]');
 const newDownloadButton = document.getElementById('new-download');
 const genericNewDownload = document.getElementById('generic-new-download');
 let toastTimer;
@@ -80,9 +80,13 @@ if (!resolverSection || !input || !resolveButton || !resultSection || !videoElem
         }
     });
 
-    copyPixButton?.addEventListener('click', () => copyPixKey('5573991060975'));
     newDownloadButton?.addEventListener('click', resetForm);
     genericNewDownload?.addEventListener('click', resetForm);
+    copyPixButtons.forEach(button => {
+        const pixKey = button.getAttribute('data-pix-key');
+        if (!pixKey) return;
+        button.addEventListener('click', () => copyPixKey(pixKey));
+    });
 
     tryResolveFromQuery();
 
