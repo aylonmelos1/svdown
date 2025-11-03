@@ -1,4 +1,6 @@
 import axios from 'axios';
+import type { ResolveResult } from './types';
+import { fileNameFromUrl } from './utils';
 
 interface ShopeePayload {
     shareUrl: string;
@@ -17,7 +19,7 @@ export class ShopeeService {
         return hostname.endsWith('shp.ee') || pathname.includes('/universal-link');
     }
 
-    public async resolve(url: string): Promise<ShopeePayload> {
+    public async resolve(url: string): Promise<ResolveResult> {
         if (!url) {
             throw new Error('Link não informado');
         }
@@ -44,9 +46,27 @@ export class ShopeeService {
 
         const payload = await this.fetchUniversalLinkPayload(universalLink);
 
+        const { pageProps, directVideoUrl, title, thumbnail, shareUrl } = payload;
+
         return {
-            universalLink,
-            ...payload,
+            service: 'shopee',
+            title,
+            thumbnail,
+            shareUrl: shareUrl || universalLink,
+            video: directVideoUrl
+                ? {
+                    url: directVideoUrl,
+                    fallbackUrls: pageProps?.mediaInfo?.video?.watermarkVideoUrl
+                        ? [pageProps.mediaInfo.video.watermarkVideoUrl]
+                        : undefined,
+                    fileName: fileNameFromUrl(directVideoUrl, 'shopee-video.mp4'),
+                    qualityLabel: 'original',
+                }
+                : undefined,
+            pageProps,
+            extras: {
+                universalLink,
+            },
         };
     }
 

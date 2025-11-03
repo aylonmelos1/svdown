@@ -1,11 +1,7 @@
 import axios from 'axios';
 import * as cheerio from 'cheerio';
-
-interface PinterestPayload {
-    title: string;
-    thumbnail?: string;
-    downloads: { quality: string; format: string; url: string }[];
-}
+import type { ResolveResult } from './types';
+import { fileNameFromUrl, sanitizeBaseName } from './utils';
 
 export class PinterestService {
     public isApplicable(url: string): boolean {
@@ -13,7 +9,7 @@ export class PinterestService {
         return parsedUrl.hostname.includes('pinterest.');
     }
 
-    public async resolve(url: string): Promise<PinterestPayload> {
+    public async resolve(url: string): Promise<ResolveResult> {
         const encodedUrl = encodeURIComponent(url);
         const fullUrl = `https://www.savepin.app/download.php?url=${encodedUrl}&lang=en&type=redirect`;
 
@@ -55,14 +51,51 @@ export class PinterestService {
                 }
             });
 
+            const ordered = this.sortByQuality(results);
+            const primary = ordered[0];
+            const fallbacks = ordered.slice(1).map(item => item.url);
+
             return {
+                service: 'pinterest',
                 title,
                 thumbnail,
-                downloads: results,
+                video: primary
+                    ? {
+                        url: primary.url,
+                        fallbackUrls: fallbacks,
+                        fileName: fileNameFromUrl(primary.url, `${sanitizeBaseName(title)}.mp4`),
+                        qualityLabel: primary.quality || primary.format,
+                    }
+                    : undefined,
+                extras: {
+                    rawDownloads: results,
+                    source: fullUrl,
+                },
             };
         } catch (error) {
             const message = error instanceof Error ? error.message : 'Unknown error';
             throw new Error('Failed to scrape Pinterest media: ' + message);
         }
+    }
+
+    private sortByQuality(items: { quality: string; format: string; url: string }[]) {
+        const mp4Items = items.filter(item => item.format?.toLowerCase().includes('mp4'));
+        const scored = mp4Items.map(item => ({
+            ...item,
+            score: this.extractResolution(item.quality) ?? 0,
+        }));
+
+        return scored
+            .sort((a, b) => b.score - a.score)
+            .map(({ score, ...rest }) => rest);
+    }
+
+    private extractResolution(value?: string): number | undefined {
+        if (!value) return undefined;
+        const match = value.match(/(\d{3,4})p/i);
+        if (match) return parseInt(match[1], 10);
+        const digits = value.match(/(\d{3,4})/);
+        if (digits) return parseInt(digits[1], 10);
+        return undefined;
     }
 }

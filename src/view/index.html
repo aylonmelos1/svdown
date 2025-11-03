@@ -96,7 +96,7 @@
         </section>
 
         <section id="result-section" class="result hidden" aria-live="polite">
-            <article class="video-card">
+            <article id="shopee-card" class="video-card">
                 <video id="video-player" controls playsinline></video>
                 <div class="video-meta">
                     <h2 id="creator-name"></h2>
@@ -119,6 +119,24 @@
                     <div class="donation-blurb">
                         <p>Gostou? Ajude a manter esta ferramenta online - Faça uma doação 💜<br>Chave PIX: <code>+55 73 99106-0975</code></p>
                         <button type="button" class="btn secondary" id="copy-pix">Copiar chave PIX</button>
+                    </div>
+                </div>
+            </article>
+            <article id="generic-card" class="video-card hidden">
+                <video id="generic-video-player" controls playsinline></video>
+                <div class="video-meta">
+                    <h2 id="generic-title"></h2>
+                    <p id="generic-description" class="video-description"></p>
+                    <div class="actions">
+                        <a id="generic-download-video" class="btn" href="#">
+                            <span class="btn-spinner hidden" aria-hidden="true"></span>
+                            <span class="btn-label">Baixar vídeo</span>
+                        </a>
+                        <a id="generic-download-audio" class="btn secondary hidden" href="#">
+                            <span class="btn-spinner hidden" aria-hidden="true"></span>
+                            <span class="btn-label">Baixar áudio (MP3)</span>
+                        </a>
+                        <button id="generic-new-download" class="btn secondary clear-action" type="button">Baixar outro vídeo</button>
                     </div>
                 </div>
             </article>

@@ -228,7 +228,8 @@ body {
     position: relative;
 }
 
-.video-caption {
+.video-caption,
+.video-description {
     margin: 0;
     padding: 1rem 1.15rem;
     border-radius: 16px;
@@ -236,6 +237,9 @@ body {
     border: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
     color: var(--text-muted);
     line-height: 1.6;
+}
+
+.video-caption {
     cursor: pointer;
     transition: border 0.2s ease, transform 0.2s ease, color 0.2s ease;
 }

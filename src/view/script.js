@@ -3,10 +3,10 @@ window.dataLayer = window.dataLayer || [];
 function dl(eventName, params = {}) {
   window.dataLayer.push({ event: eventName, ...params });
 }
-async function sha256Hex(str){
+async function sha256Hex(str) {
   const enc = new TextEncoder().encode(str);
   const buf = await crypto.subtle.digest('SHA-256', enc);
-  return [...new Uint8Array(buf)].map(b=>b.toString(16).padStart(2,'0')).join('');
+  return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
 }
 // ===============================
 
@@ -14,40 +14,64 @@ const resolverSection = document.getElementById('resolver-form');
 const input = document.getElementById('link-input');
 const feedback = document.getElementById('feedback');
 const resultSection = document.getElementById('result-section');
+const shopeeCard = document.getElementById('shopee-card');
+const genericCard = document.getElementById('generic-card');
 const videoElement = document.getElementById('video-player');
+const genericVideoElement = document.getElementById('generic-video-player');
 const creatorName = document.getElementById('creator-name');
+const genericTitle = document.getElementById('generic-title');
 const videoCaption = document.getElementById('video-caption');
+const genericDescription = document.getElementById('generic-description');
 const likeCount = document.getElementById('like-count');
 const commentCount = document.getElementById('comment-count');
 const downloadLink = document.getElementById('download-link');
+const genericDownloadVideo = document.getElementById('generic-download-video');
+const genericDownloadAudio = document.getElementById('generic-download-audio');
 const shareLink = document.getElementById('share-link');
 const loader = document.getElementById('loading-indicator');
 const loaderText = document.getElementById('loading-text');
 const resolveButton = document.getElementById('resolve-button');
 const captionBubble = document.getElementById('caption-hint');
 const toast = document.getElementById('toast');
+const copyPixButton = document.getElementById('copy-pix');
+const newDownloadButton = document.getElementById('new-download');
+const genericNewDownload = document.getElementById('generic-new-download');
 let toastTimer;
+let captionBubbleTimer;
 
-if (!resolverSection || !input || !resolveButton || !downloadLink || !videoElement || !videoCaption) {
+const state = {
+    media: {
+        service: null,
+        video: null,
+        audio: null,
+        shareUrl: null,
+        pageProps: null,
+        title: null,
+        description: null,
+    },
+    linkHash: '',
+    resolveStartTime: 0,
+};
+
+if (!resolverSection || !input || !resolveButton || !resultSection || !videoElement || !videoCaption || !downloadLink) {
     console.warn('SVDown: elementos essenciais não encontrados, script abortado.');
 } else {
-    const {
-        spinner: downloadSpinner,
-        label: downloadLabel
-    } = ensureDownloadButtonParts();
-    const captionHint = document.getElementById('caption-hint');
-    const originalDownloadLabel = downloadLabel.textContent?.trim() || 'Baixar vídeo';
-    let currentDownloadUrl = '';
-    let resolveStartTime = 0;
+    const downloadButtonCtrl = initDownloadButton(downloadLink, 'Baixar vídeo', 'Baixando...');
+    const genericVideoButtonCtrl = initDownloadButton(genericDownloadVideo, 'Baixar vídeo', 'Baixando...');
+    const genericAudioButtonCtrl = initDownloadButton(genericDownloadAudio, 'Baixar áudio (MP3)', 'Preparando MP3...');
 
     resolveButton.addEventListener('click', () => handleResolve(input.value.trim()));
-    downloadLink.addEventListener('click', handleDownload);
+    downloadLink.addEventListener('click', (event) => handleDownload(event, 'video', downloadButtonCtrl));
+    genericDownloadVideo?.addEventListener('click', (event) => handleDownload(event, 'video', genericVideoButtonCtrl));
+    genericDownloadAudio?.addEventListener('click', (event) => handleDownload(event, 'audio', genericAudioButtonCtrl));
+
     input.addEventListener('keydown', event => {
         if (event.key === 'Enter') {
             event.preventDefault();
             resolveButton.click();
         }
     });
+
     videoCaption.addEventListener('click', copyCaptionToClipboard);
     videoCaption.addEventListener('keydown', event => {
         if (event.key === 'Enter' || event.key === ' ') {
@@ -56,34 +80,31 @@ if (!resolverSection || !input || !resolveButton || !downloadLink || !videoEleme
         }
     });
 
-    const copyPixButton = document.getElementById('copy-pix');
     copyPixButton?.addEventListener('click', () => copyPixKey('5573991060975'));
-    const newDownloadButton = document.getElementById('new-download');
     newDownloadButton?.addEventListener('click', resetForm);
+    genericNewDownload?.addEventListener('click', resetForm);
 
     tryResolveFromQuery();
 
-    // === Atualizado para async para podermos gerar hash e medir tempo ===
     async function handleResolve(link) {
         if (!link) {
             showFeedback('Informe um link.', true);
             return;
         }
 
-        // métricas: início de resolução
-        resolveStartTime = performance.now();
-        let linkHash = '';
+        state.resolveStartTime = performance.now();
+        state.linkHash = '';
         let domain = '';
         let hasQuery = false;
         try {
-            linkHash = await sha256Hex(link);
+            state.linkHash = await sha256Hex(link);
             const u = new URL(link);
             domain = u.hostname;
             hasQuery = !!u.search;
         } catch (_) {
-            // URL inválida não quebra o fluxo; ainda assim seguimos sem domain/hasQuery
+            // URL inválida não interrompe o fluxo
         }
-        dl('paste_link', { link_hash: linkHash, domain, has_query: hasQuery, ts: Date.now() });
+        dl('paste_link', { link_hash: state.linkHash, domain, has_query: hasQuery, ts: Date.now() });
 
         setLoading(true, 'Resolvendo link...');
         showFeedback('Resolvendo link...');
@@ -97,196 +118,317 @@ if (!resolverSection || !input || !resolveButton || !downloadLink || !videoEleme
 
             const data = await response.json();
             if (!response.ok) {
-                const responseTimeMs = Math.round(performance.now() - resolveStartTime);
+                const responseTimeMs = Math.round(performance.now() - state.resolveStartTime);
                 dl('resolve_error', {
-                    link_hash: linkHash,
+                    link_hash: state.linkHash,
                     error_message: (data && data.error) || 'Não foi possível resolver o link.',
                     response_time_ms: responseTimeMs
                 });
                 throw new Error(data?.error || 'Não foi possível resolver o link.');
             }
 
-            if (data.downloads || data.formats) {
-                renderMultiResult(data);
-            } else {
-                renderResult(data);
-            }
+            renderServiceResult(data);
             showFeedback('Link resolvido com sucesso!');
             updateUrlWithQuery(link);
 
-            // métricas: sucesso
-            const responseTimeMs = Math.round(performance.now() - resolveStartTime);
-
+            const responseTimeMs = Math.round(performance.now() - state.resolveStartTime);
             dl('resolve_success', {
-                link_hash: linkHash,
-                response_time_ms: responseTimeMs
+                link_hash: state.linkHash,
+                response_time_ms: responseTimeMs,
+                service: data?.service || 'unknown',
             });
 
         } catch (error) {
             console.error(error);
-            showFeedback(error.message || 'Erro ao resolver link.', true);
+            const message = error instanceof Error ? error.message : 'Erro ao resolver link.';
+            showFeedback(message, true);
+            showToast('Não foi possível resolver o link.', true);
             resultSection.classList.add('hidden');
+            resetMediaState();
         } finally {
             setLoading(false);
         }
     }
 
-    // === Atualizado para async para gerar hash e medir eventos ===
-    async function handleDownload(event) {
-        if (!currentDownloadUrl) return;
+    function renderServiceResult(data) {
+        state.media = {
+            service: data?.service || null,
+            video: data?.video || null,
+            audio: data?.audio || null,
+            shareUrl: data?.shareUrl || null,
+            pageProps: data?.pageProps || null,
+            title: data?.title || null,
+            description: data?.description || null,
+        };
+
+        if (data?.service === 'shopee') {
+            renderShopeeResult(data);
+        } else {
+            renderGenericResult(data);
+        }
+
+        resolverSection.classList.add('hidden');
+        resultSection.classList.remove('hidden');
+    }
+
+    function renderShopeeResult(data) {
+        genericCard?.classList.add('hidden');
+        shopeeCard?.classList.remove('hidden');
+
+        clearVideoElement(genericVideoElement);
+
+        const videoSelection = data?.video;
+
+        if (videoSelection?.url) {
+            videoElement.src = videoSelection.url;
+            if (data?.thumbnail) {
+                videoElement.poster = data.thumbnail;
+            } else {
+                videoElement.removeAttribute('poster');
+            }
+            videoElement.load();
+        } else {
+            clearVideoElement(videoElement);
+        }
+
+        const pageProps = data?.pageProps || {};
+        const mediaInfo = pageProps?.mediaInfo || {};
+
+        creatorName.textContent = mediaInfo?.userInfo?.videoUserName || data?.title || 'Criador desconhecido';
+        videoCaption.textContent = mediaInfo?.video?.caption || 'Sem descrição definida.';
+
+        const likeCountContainer = likeCount?.parentElement;
+        const commentCountContainer = commentCount?.parentElement;
+        if (mediaInfo?.count && typeof mediaInfo.count.likeCount === 'number') {
+            likeCount.textContent = formatNumber(mediaInfo.count.likeCount);
+            commentCount.textContent = formatNumber(mediaInfo.count.commentCount);
+            if (likeCountContainer) likeCountContainer.style.display = 'list-item';
+            if (commentCountContainer) commentCountContainer.style.display = 'list-item';
+        } else {
+            if (likeCountContainer) likeCountContainer.style.display = 'none';
+            if (commentCountContainer) commentCountContainer.style.display = 'none';
+        }
+
+        if (shareLink) {
+            const linkTarget = data?.shareUrl || mediaInfo?.video?.shareUrl || mediaInfo?.shareUrl;
+            if (linkTarget) {
+                shareLink.href = linkTarget;
+                shareLink.classList.remove('hidden');
+            } else {
+                shareLink.classList.add('hidden');
+            }
+        }
+
+        downloadLink.href = '#';
+        downloadButtonCtrl?.reset();
+
+        if (captionBubble) {
+            captionBubble.classList.remove('hidden');
+            captionBubble.classList.remove('show');
+            captionBubble.textContent = 'Clique para copiar';
+        }
+    }
+
+    function renderGenericResult(data) {
+        shopeeCard?.classList.add('hidden');
+        genericCard?.classList.remove('hidden');
+
+        clearVideoElement(videoElement);
+
+        const videoSelection = data?.video;
+        const audioSelection = data?.audio;
+
+        if (genericVideoElement) {
+            if (videoSelection?.url) {
+                genericVideoElement.src = videoSelection.url;
+                if (data?.thumbnail) {
+                    genericVideoElement.poster = data.thumbnail;
+                } else {
+                    genericVideoElement.removeAttribute('poster');
+                }
+                genericVideoElement.classList.remove('hidden');
+                genericVideoElement.load();
+            } else {
+                clearVideoElement(genericVideoElement);
+                genericVideoElement.classList.add('hidden');
+            }
+        }
+
+        if (genericTitle) {
+            genericTitle.textContent = data?.title || 'Mídia encontrada';
+        }
+
+        if (genericDescription) {
+            const descriptionText = data?.description || '';
+            genericDescription.textContent = descriptionText;
+            genericDescription.classList.toggle('hidden', !descriptionText);
+        }
+
+        if (genericDownloadVideo) {
+            const hasVideo = Boolean(videoSelection?.url);
+            genericDownloadVideo.classList.toggle('hidden', !hasVideo);
+            if (hasVideo) {
+                genericVideoButtonCtrl?.reset();
+            }
+        }
+
+        if (genericDownloadAudio) {
+            const hasAudio = Boolean(audioSelection?.url);
+            genericDownloadAudio.classList.toggle('hidden', !hasAudio);
+            if (hasAudio) {
+                genericAudioButtonCtrl?.reset();
+            }
+        }
+
+        shareLink?.classList.add('hidden');
+    }
+
+    async function handleDownload(event, mediaType, buttonCtrl) {
         event.preventDefault();
+        if (!buttonCtrl) return;
 
-        // métrica: clique no download
+        const selection = mediaType === 'audio' ? state.media.audio : state.media.video;
+
+        if (!selection || !selection.url) {
+            showFeedback('Nenhum arquivo disponível para download.', true);
+            showToast('Nenhum arquivo disponível para download.', true);
+            return;
+        }
+
+        const loadingMessage = mediaType === 'audio' ? 'Preparando áudio...' : 'Preparando download...';
+        setLoading(true, loadingMessage);
+        buttonCtrl.setLoading(true, mediaType === 'audio' ? 'Preparando MP3...' : undefined);
+
         try {
-            const dlHash = await sha256Hex(currentDownloadUrl);
-            dl('download_click', {
-                link_hash: dlHash,
-                ts: Date.now()
-                // Se você tiver 'format' ou 'quality', inclua aqui.
-            });
-        } catch (_) {}
-
-        setLoading(true, 'Preparando download...');
-        setDownloadLoading(true);
-        showFeedback('Seu vídeo está sendo preparado. Isso pode levar alguns instantes...');
-
-        try {
-            const response = await fetch(currentDownloadUrl);
-            if (!response.ok) {
-                const dlHash = await sha256Hex(currentDownloadUrl);
-                dl('download_error', {
-                    link_hash: dlHash,
-                    error_message: 'Falha ao iniciar download.'
+            const selectionHash = await safeHash(selection.url);
+            if (selectionHash) {
+                dl('download_click', {
+                    link_hash: selectionHash,
+                    ts: Date.now(),
+                    media_type: mediaType,
+                    service: state.media.service || 'unknown',
                 });
+            }
+
+            const requestUrl = buildDownloadRequest(selection, mediaType);
+            const response = await fetch(requestUrl);
+            if (!response.ok) {
+                if (selectionHash) {
+                    dl('download_error', {
+                        link_hash: selectionHash,
+                        error_message: 'Falha ao iniciar download.',
+                        media_type: mediaType,
+                        service: state.media.service || 'unknown',
+                    });
+                }
                 throw new Error('Falha ao iniciar download.');
             }
-            if (response.headers.get('X-Metadata-Cleaned') === 'false') {
+
+            const metadataHeader = response.headers.get('X-Metadata-Cleaned');
+            if (metadataHeader === 'false') {
                 showToast('Não foi possível remover os metadados do vídeo.', true);
+            }
+            const audioHeader = response.headers.get('X-Audio-Transcoded');
+            if (audioHeader === 'false') {
+                showToast('Não foi possível converter o áudio para MP3.', true);
             }
 
             const blob = await response.blob();
             const objectUrl = URL.createObjectURL(blob);
-            triggerBrowserDownload(objectUrl);
+            triggerBrowserDownload(objectUrl, selection.fileName, mediaType);
             showFeedback('Download concluído! Confira sua pasta de downloads.');
             showToast('Download concluído! Confira sua pasta de downloads.');
 
-            // métrica: download completo
-            const dlHash = await sha256Hex(currentDownloadUrl);
-            dl('download_complete', {
-                link_hash: dlHash,
-                success: true,
-                bytes_estimated: blob.size
-            });
-
+            if (selectionHash) {
+                dl('download_complete', {
+                    link_hash: selectionHash,
+                    success: true,
+                    bytes_estimated: blob.size,
+                    media_type: mediaType,
+                    service: state.media.service || 'unknown',
+                });
+            }
         } catch (error) {
             console.error(error);
-            showFeedback(error.message || 'Não foi possível baixar o vídeo.', true);
-            showToast('Não foi possível baixar o vídeo.', true);
+            const message = error instanceof Error ? error.message : 'Não foi possível baixar o arquivo.';
+            showFeedback(message, true);
+            showToast('Não foi possível baixar o arquivo.', true);
 
-            // métrica: erro no download (se já não foi enviado acima)
             try {
-                const dlHash = await sha256Hex(currentDownloadUrl);
-                dl('download_error', {
-                    link_hash: dlHash,
-                    error_message: error.message || 'unknown'
-                });
-            } catch (_) {}
+                const selectionHash = await safeHash(selection.url);
+                if (selectionHash) {
+                    dl('download_error', {
+                        link_hash: selectionHash,
+                        error_message: message || 'unknown',
+                        media_type: mediaType,
+                        service: state.media.service || 'unknown',
+                    });
+                }
+            } catch (_) {
+                // ignore analytics errors
+            }
         } finally {
-            setDownloadLoading(false);
+            buttonCtrl.setLoading(false);
             setLoading(false);
         }
     }
 
-    function renderMultiResult(data) {
-        const { title, thumbnail, downloads, formats } = data;
-        const actions = document.querySelector('#result-section .actions');
-        actions.innerHTML = ''; // Clear previous results
-
-        videoElement.src = thumbnail;
-        videoElement.poster = thumbnail;
-
-        creatorName.textContent = title;
-        videoCaption.textContent = 'Selecione um formato para baixar';
-
-        const items = downloads || formats;
-
-        items.forEach(item => {
-            const link = document.createElement('a');
-            link.href = item.url;
-            link.textContent = item.text || item.label;
-            link.className = 'btn';
-            link.target = '_blank';
-            link.rel = 'noopener noreferrer';
-            actions.appendChild(link);
-        });
-
-        resultSection.classList.remove('hidden');
+    function buildDownloadRequest(selection, mediaType) {
+        const params = new URLSearchParams();
+        params.set('url', selection.url);
+        if (selection.fileName) {
+            params.set('filename', selection.fileName);
+        }
+        if (Array.isArray(selection.fallbackUrls)) {
+            selection.fallbackUrls.filter(Boolean).forEach(url => params.append('fallback', url));
+        }
+        if (mediaType === 'audio') {
+            params.set('type', 'audio');
+        }
+        return `/api/download?${params.toString()}`;
     }
 
-    function renderResult(data) {
-        const { pageProps, directVideoUrl, shareUrl, title, thumbnail } = data;
-
-        if (!directVideoUrl) {
-            showFeedback('Vídeo não encontrado para este link.', true);
-            resultSection.classList.add('hidden');
-            resetDownloadLink();
-            return;
+    function resetForm() {
+        input.value = '';
+        clearVideoElement(videoElement);
+        clearVideoElement(genericVideoElement);
+        resultSection.classList.add('hidden');
+        resolverSection.classList.remove('hidden');
+        resetMediaState();
+        downloadButtonCtrl?.reset();
+        genericVideoButtonCtrl?.reset();
+        genericAudioButtonCtrl?.reset();
+        shareLink?.classList.add('hidden');
+        showFeedback('Pronto para baixar outro vídeo!');
+        showToast('Pronto para baixar outro vídeo!');
+        if (captionBubble) {
+            captionBubble.classList.remove('show');
+            captionBubble.textContent = 'Clique para copiar';
         }
-
-        videoElement.src = directVideoUrl;
-        if (thumbnail) {
-            videoElement.poster = thumbnail;
-        }
-
-        const params = new URLSearchParams({ url: directVideoUrl });
-        if (pageProps?.mediaInfo?.video?.watermarkVideoUrl) {
-            params.set('fallback', pageProps.mediaInfo.video.watermarkVideoUrl);
-        }
-        currentDownloadUrl = `/api/download?${params.toString()}`;
-        downloadLink.href = currentDownloadUrl;
-        setDownloadLoading(false);
-
-        if (shareUrl) {
-            shareLink.href = shareUrl;
-        }
-
-        creatorName.textContent = pageProps?.mediaInfo?.userInfo?.videoUserName || title || 'Criador desconhecido';
-        videoCaption.textContent = pageProps?.mediaInfo?.video?.caption || 'Sem descrição definida.';
-
-        const likeCountContainer = document.getElementById('like-count').parentElement;
-        const commentCountContainer = document.getElementById('comment-count').parentElement;
-
-        if (pageProps?.mediaInfo?.count) {
-            likeCount.textContent = formatNumber(pageProps.mediaInfo.count.likeCount);
-            commentCount.textContent = formatNumber(pageProps.mediaInfo.count.commentCount);
-            likeCountContainer.style.display = 'list-item';
-            commentCountContainer.style.display = 'list-item';
-        } else {
-            likeCountContainer.style.display = 'none';
-            commentCountContainer.style.display = 'none';
-        }
-
-        resultSection.classList.remove('hidden');
     }
 
-    function ensureDownloadButtonParts() {
-        let spinner = downloadLink.querySelector('.btn-spinner');
-        if (!spinner) {
-            spinner = document.createElement('span');
-            spinner.className = 'btn-spinner hidden';
-            spinner.setAttribute('aria-hidden', 'true');
-            downloadLink.prepend(spinner);
-        }
+    function resetMediaState() {
+        state.media = {
+            service: null,
+            video: null,
+            audio: null,
+            shareUrl: null,
+            pageProps: null,
+            title: null,
+            description: null,
+        };
+    }
 
-        let label = downloadLink.querySelector('.btn-label');
-        if (!label) {
-            label = document.createElement('span');
-            label.className = 'btn-label';
-            label.textContent = 'Baixar vídeo';
-            downloadLink.append(label);
+    function clearVideoElement(element) {
+        if (!element) return;
+        try {
+            element.pause();
+        } catch (_) {
+            // ignore
         }
-
-        return { spinner, label };
+        element.removeAttribute('src');
+        element.removeAttribute('poster');
+        element.load();
     }
 
     function showFeedback(message, isError = false) {
@@ -296,55 +438,20 @@ if (!resolverSection || !input || !resolveButton || !downloadLink || !videoEleme
         feedback.classList.remove('hidden');
     }
 
-    function setLoading(state, message = 'Processando...') {
+    function setLoading(stateValue, message = 'Processando...') {
         if (message && loaderText) loaderText.textContent = message;
-        if (loader) loader.classList.toggle('hidden', !state);
-        resolveButton.disabled = state;
-        input.disabled = state;
-        downloadLink.classList.toggle('disabled', state);
-        downloadLink.setAttribute('aria-disabled', String(state));
+        loader?.classList.toggle('hidden', !stateValue);
+        resolveButton.disabled = stateValue;
+        input.disabled = stateValue;
+
+        const hasVideo = Boolean(state.media.video?.url);
+        const hasAudio = Boolean(state.media.audio?.url);
+
+        downloadButtonCtrl?.setDisabled(stateValue || state.media.service !== 'shopee' || !hasVideo);
+        genericVideoButtonCtrl?.setDisabled(stateValue || state.media.service === 'shopee' || !hasVideo);
+        genericAudioButtonCtrl?.setDisabled(stateValue || !hasAudio);
     }
 
-    function setDownloadLoading(state) {
-        downloadSpinner.classList.toggle('hidden', !state);
-        downloadLabel.textContent = state ? 'Baixando...' : originalDownloadLabel;
-        downloadLink.classList.toggle('disabled', state);
-        downloadLink.setAttribute('aria-disabled', String(state));
-    }
-
-    function triggerBrowserDownload(objectUrl) {
-        const anchor = document.createElement('a');
-        anchor.href = objectUrl;
-        anchor.download = `video-${Date.now()}.mp4`;
-        document.body.appendChild(anchor);
-        anchor.click();
-        anchor.remove();
-        setTimeout(() => URL.revokeObjectURL(objectUrl), 0);
-    }
-
-    function resetDownloadLink() {
-        currentDownloadUrl = '';
-        downloadLink.href = '#';
-        setDownloadLoading(false);
-    }
-
-    function resetForm() {
-        const actions = document.querySelector('#result-section .actions');
-        actions.innerHTML = '';
-        input.value = '';
-        resetDownloadLink();
-        resultSection.classList.add('hidden');
-        resolverSection.classList.remove('hidden');
-        showFeedback('Pronto para baixar outro vídeo!');
-        showToast('Pronto para baixar outro vídeo!');
-        if (captionBubble) {
-            captionBubble.classList.remove('hidden');
-            captionBubble.classList.remove('show');
-            captionBubble.textContent = 'Clique para copiar';
-        }
-    }
-
-    // === Atualizado para async para registrar 'caption_copied' ===
     async function copyCaptionToClipboard() {
         const text = videoCaption.textContent?.trim();
         if (!text) {
@@ -354,14 +461,10 @@ if (!resolverSection || !input || !resolveButton || !downloadLink || !videoEleme
         }
 
         const pushCopiedEvent = async () => {
-            try {
-                if (currentDownloadUrl) {
-                    const dlHash = await sha256Hex(currentDownloadUrl);
-                    dl('caption_copied', { link_hash: dlHash });
-                } else {
-                    dl('caption_copied', {});
-                }
-            } catch (_) {
+            const linkHash = await safeHash(state.media.video?.url || '');
+            if (linkHash) {
+                dl('caption_copied', { link_hash: linkHash });
+            } else {
                 dl('caption_copied', {});
             }
         };
@@ -457,9 +560,7 @@ if (!resolverSection || !input || !resolveButton || !downloadLink || !videoEleme
         handleResolve(linkFromQuery);
     }
 
-    let captionBubbleTimer;
-
-function showCaptionBubble() {
+    function showCaptionBubble() {
         if (!captionBubble) return;
         captionBubble.textContent = 'Copiado!';
         captionBubble.classList.add('show');
@@ -483,4 +584,63 @@ function showCaptionBubble() {
             setTimeout(() => toast.classList.add('hidden'), 250);
         }, 2200);
     }
+
+    async function safeHash(value) {
+        if (!value) return '';
+        try {
+            return await sha256Hex(value);
+        } catch (_) {
+            return '';
+        }
+    }
+
+    function triggerBrowserDownload(objectUrl, fileName, mediaType) {
+        const anchor = document.createElement('a');
+        const extension = mediaType === 'audio' ? '.mp3' : '.mp4';
+        const fallbackName = fileName || `download-${Date.now()}${extension}`;
+        anchor.href = objectUrl;
+        anchor.download = fallbackName;
+        document.body.appendChild(anchor);
+        anchor.click();
+        anchor.remove();
+        setTimeout(() => URL.revokeObjectURL(objectUrl), 0);
+    }
+}
+
+function initDownloadButton(button, defaultLabel, loadingLabel) {
+    if (!button) return null;
+    let spinner = button.querySelector('.btn-spinner');
+    if (!spinner) {
+        spinner = document.createElement('span');
+        spinner.className = 'btn-spinner hidden';
+        spinner.setAttribute('aria-hidden', 'true');
+        button.prepend(spinner);
+    }
+    let label = button.querySelector('.btn-label');
+    if (!label) {
+        label = document.createElement('span');
+        label.className = 'btn-label';
+        label.textContent = defaultLabel;
+        button.append(label);
+    }
+
+    const setDisabled = (state) => {
+        button.classList.toggle('disabled', state);
+        button.setAttribute('aria-disabled', String(state));
+    };
+
+    const setLoading = (state, overrideLabel) => {
+        spinner?.classList.toggle('hidden', !state);
+        if (label) {
+            label.textContent = state ? (overrideLabel || loadingLabel) : defaultLabel;
+        }
+        setDisabled(state);
+    };
+
+    return {
+        element: button,
+        setLoading,
+        setDisabled,
+        reset: () => setLoading(false),
+    };
 }

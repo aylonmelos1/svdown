@@ -12,16 +12,20 @@ export const resolveLinkResponse = async (req: Request, res: Response) => {
         if (service) {
             log.info(`Service found for link: ${link}. Service: ${service.constructor.name}`);
             const result = await service.resolve(link);
-            log.info(`Service ${service.constructor.name} resolved link ${link} with result: ${JSON.stringify(result)}`);
+            log.info(`Service ${service.constructor.name} resolved link ${link}`);
             res.json(result);
         } else {
             log.warn(`No service found for link: ${link}`);
-            throw new Error('Unsupported link type');
+            throw new Error('Tipo de link não suportado');
         }
     } catch (error) {
         log.error(error);
         const message = error instanceof Error ? error.message : 'Falha ao resolver link';
-        const isClientError = message.startsWith('Link') || message.startsWith('Parâmetro') || message.startsWith('Tipo');
+        const isClientError =
+            message.startsWith('Link') ||
+            message.startsWith('Parâmetro') ||
+            message.startsWith('Tipo') ||
+            message.includes('não suportado');
         res.status(isClientError ? 400 : 500).json({ error: message });
     }
 };

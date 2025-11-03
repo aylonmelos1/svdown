@@ -1,11 +1,7 @@
 import axios from 'axios';
 import * as cheerio from 'cheerio';
-
-interface TiktokPayload {
-    title: string | null;
-    thumbnail: string | null;
-    downloads: { text: string; url: string | undefined }[];
-}
+import type { ResolveResult } from './types';
+import { fileNameFromUrl, sanitizeBaseName } from './utils';
 
 export class TiktokService {
     public isApplicable(url: string): boolean {
@@ -13,7 +9,7 @@ export class TiktokService {
         return parsedUrl.hostname.includes('tiktok.com');
     }
 
-    public async resolve(url: string): Promise<TiktokPayload> {
+    public async resolve(url: string): Promise<ResolveResult> {
         const endpoint = 'https://tikdownloader.io/api/ajaxSearch';
 
         try {
@@ -47,14 +43,53 @@ export class TiktokService {
                 });
             });
 
+            const candidates = downloads
+                .filter(item => Boolean(item.url))
+                .map(item => ({
+                    ...item,
+                    url: item.url!,
+                    score: this.scoreDownload(item),
+                }))
+                .sort((a, b) => b.score - a.score);
+
+            const primary = candidates[0];
+            const fallbacks = candidates.slice(1).map(item => item.url);
+
             return {
-                title,
-                thumbnail,
-                downloads,
+                service: 'tiktok',
+                title: title || undefined,
+                thumbnail: thumbnail || undefined,
+                video: primary
+                    ? {
+                        url: primary.url,
+                        fallbackUrls: fallbacks,
+                        fileName: fileNameFromUrl(primary.url, `${sanitizeBaseName(title ?? 'tiktok')}.mp4`),
+                        qualityLabel: primary.text,
+                    }
+                    : undefined,
+                extras: {
+                    rawDownloads: downloads,
+                    endpoint,
+                },
             };
         } catch (error) {
             const message = error instanceof Error ? error.message : 'Unknown error';
             throw new Error(`TikDownloader request failed: ${message}`);
         }
+    }
+
+    private scoreDownload(item: { text: string; url?: string }) {
+        let score = 0;
+        if (item.text?.toLowerCase().includes('no watermark')) {
+            score += 1000;
+        }
+        const quality = item.text?.match(/(\d{3,4})p/);
+        if (quality) {
+            score += parseInt(quality[1], 10);
+        }
+        if (item.text?.toLowerCase().includes('hd')) {
+            score += 50;
+        }
+        return score;
     }
 }
