@@ -66,7 +66,7 @@ if (!resolverSection || !input || !resolveButton || !downloadLink || !videoEleme
     // === Atualizado para async para podermos gerar hash e medir tempo ===
     async function handleResolve(link) {
         if (!link) {
-            showFeedback('Informe um link da Shopee.', true);
+            showFeedback('Informe um link.', true);
             return;
         }
 
@@ -106,20 +106,19 @@ if (!resolverSection || !input || !resolveButton || !downloadLink || !videoEleme
                 throw new Error(data?.error || 'Não foi possível resolver o link.');
             }
 
-            renderResult(data);
+            if (data.downloads || data.formats) {
+                renderMultiResult(data);
+            } else {
+                renderResult(data);
+            }
             showFeedback('Link resolvido com sucesso!');
             updateUrlWithQuery(link);
 
             // métricas: sucesso
-            const videoInfo = data?.pageProps?.mediaInfo?.video || {};
-            const userInfo = data?.pageProps?.mediaInfo?.userInfo || {};
             const responseTimeMs = Math.round(performance.now() - resolveStartTime);
 
             dl('resolve_success', {
                 link_hash: linkHash,
-                has_caption: !!videoInfo.caption,
-                duration: videoInfo.duration || null,
-                author_name: userInfo.videoUserName || 'Desconhecido',
                 response_time_ms: responseTimeMs
             });
 
@@ -198,15 +197,34 @@ if (!resolverSection || !input || !resolveButton || !downloadLink || !videoEleme
         }
     }
 
+    function renderMultiResult(data) {
+        const { title, thumbnail, downloads, formats } = data;
+        const actions = document.querySelector('#result-section .actions');
+        actions.innerHTML = ''; // Clear previous results
+
+        videoElement.src = thumbnail;
+        videoElement.poster = thumbnail;
+
+        creatorName.textContent = title;
+        videoCaption.textContent = 'Selecione um formato para baixar';
+
+        const items = downloads || formats;
+
+        items.forEach(item => {
+            const link = document.createElement('a');
+            link.href = item.url;
+            link.textContent = item.text || item.label;
+            link.className = 'btn';
+            link.target = '_blank';
+            link.rel = 'noopener noreferrer';
+            actions.appendChild(link);
+        });
+
+        resultSection.classList.remove('hidden');
+    }
+
     function renderResult(data) {
-        const {
-            pageProps,
-            directVideoUrl,
-            shareUrl
-        } = data;
-        const videoInfo = pageProps?.mediaInfo?.video;
-        const userInfo = pageProps?.mediaInfo?.userInfo || "";
-        const counts = pageProps?.mediaInfo?.count;
+        const { pageProps, directVideoUrl, shareUrl, title, thumbnail } = data;
 
         if (!directVideoUrl) {
             showFeedback('Vídeo não encontrado para este link.', true);
@@ -215,23 +233,38 @@ if (!resolverSection || !input || !resolveButton || !downloadLink || !videoEleme
             return;
         }
 
-        const fallbackUrl = videoInfo?.watermarkVideoUrl;
-
         videoElement.src = directVideoUrl;
+        if (thumbnail) {
+            videoElement.poster = thumbnail;
+        }
+
         const params = new URLSearchParams({ url: directVideoUrl });
-        if (fallbackUrl) params.set('fallback', fallbackUrl);
+        if (pageProps?.mediaInfo?.video?.watermarkVideoUrl) {
+            params.set('fallback', pageProps.mediaInfo.video.watermarkVideoUrl);
+        }
         currentDownloadUrl = `/api/download?${params.toString()}`;
         downloadLink.href = currentDownloadUrl;
         setDownloadLoading(false);
 
-        if (shareLink) {
+        if (shareUrl) {
             shareLink.href = shareUrl;
         }
 
-        creatorName.textContent = userInfo?.videoUserName || 'Criador desconhecido';
-        videoCaption.textContent = videoInfo?.caption || 'Sem descrição definida.';
-        likeCount.textContent = formatNumber(counts?.likeCount);
-        commentCount.textContent = formatNumber(counts?.commentCount);
+        creatorName.textContent = pageProps?.mediaInfo?.userInfo?.videoUserName || title || 'Criador desconhecido';
+        videoCaption.textContent = pageProps?.mediaInfo?.video?.caption || 'Sem descrição definida.';
+
+        const likeCountContainer = document.getElementById('like-count').parentElement;
+        const commentCountContainer = document.getElementById('comment-count').parentElement;
+
+        if (pageProps?.mediaInfo?.count) {
+            likeCount.textContent = formatNumber(pageProps.mediaInfo.count.likeCount);
+            commentCount.textContent = formatNumber(pageProps.mediaInfo.count.commentCount);
+            likeCountContainer.style.display = 'list-item';
+            commentCountContainer.style.display = 'list-item';
+        } else {
+            likeCountContainer.style.display = 'none';
+            commentCountContainer.style.display = 'none';
+        }
 
         resultSection.classList.remove('hidden');
     }
@@ -282,7 +315,7 @@ if (!resolverSection || !input || !resolveButton || !downloadLink || !videoEleme
     function triggerBrowserDownload(objectUrl) {
         const anchor = document.createElement('a');
         anchor.href = objectUrl;
-        anchor.download = `shopee-video-${Date.now()}.mp4`;
+        anchor.download = `video-${Date.now()}.mp4`;
         document.body.appendChild(anchor);
         anchor.click();
         anchor.remove();
@@ -296,6 +329,8 @@ if (!resolverSection || !input || !resolveButton || !downloadLink || !videoEleme
     }
 
     function resetForm() {
+        const actions = document.querySelector('#result-section .actions');
+        actions.innerHTML = '';
         input.value = '';
         resetDownloadLink();
         resultSection.classList.add('hidden');

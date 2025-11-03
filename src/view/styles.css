@@ -360,6 +360,7 @@ body {
     cursor: not-allowed;
 }
 
+
 .seo-copy {
     background: color-mix(in srgb, var(--surface-alt) 90%, rgba(255, 255, 255, 0.05));
     border-radius: 24px;

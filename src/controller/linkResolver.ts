@@ -1,23 +1,23 @@
 import { Request, Response } from 'express';
 import log from '../log';
-import { resolveShopeeLink } from './resolvers/shopee/shopeeResolver';
+import { services } from '../services';
 
 export const resolveLinkResponse = async (req: Request, res: Response) => {
     const link = req.body.link as string;
     log.info(`Received link to resolve: ${link}`);
 
     try {
-        let result;
-        const parsedUrl = new URL(link);
-        const hostname = parsedUrl.hostname;
+        const service = services.find(s => s.isApplicable(link));
 
-        if (hostname.endsWith('shp.ee') || hostname.endsWith('shopee.com.br')) {
-            result = await resolveShopeeLink(link);
+        if (service) {
+            log.info(`Service found for link: ${link}. Service: ${service.constructor.name}`);
+            const result = await service.resolve(link);
+            log.info(`Service ${service.constructor.name} resolved link ${link} with result: ${JSON.stringify(result)}`);
+            res.json(result);
         } else {
+            log.warn(`No service found for link: ${link}`);
             throw new Error('Unsupported link type');
         }
-
-        res.json(result);
     } catch (error) {
         log.error(error);
         const message = error instanceof Error ? error.message : 'Falha ao resolver link';
