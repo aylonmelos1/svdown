@@ -50,6 +50,10 @@ body {
     margin-bottom: 0.65rem;
 }
 
+.hero-brand a {
+    text-decoration: none;
+}
+
 .hero-logo {
     width: clamp(40px, 6vw, 52px);
     height: clamp(40px, 6vw, 52px);

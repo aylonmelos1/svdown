@@ -31,8 +31,22 @@ app.get('/', (_req, res) => {
   res.sendFile(path.join(viewPath, 'index.html'));
 });
 
+app.get('/como-usar', (_req, res) => {
+  log.info('Rendering view /como-usar');
+  res.sendFile(path.join(viewPath, 'como-usar.html'));
+});
+
+app.get('/sitemap.xml', (_req, res) => {
+  res.sendFile(path.join(viewPath, 'sitemap.xml'));
+});
+
 app.post('/api/resolve', apiKeyGuard, resolveLinkResponse);
 app.get('/api/download', apiKeyGuard, downloadVideoHandler);
+
+// Catch-all route to redirect to the home page
+app.get('/*splat', (_req, res) => {
+  res.redirect('/');
+});
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
