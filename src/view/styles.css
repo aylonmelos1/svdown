@@ -48,10 +48,8 @@ body {
     align-items: center;
     gap: 0.85rem;
     margin-bottom: 0.65rem;
-}
-
-.hero-brand a {
     text-decoration: none;
+    color: inherit;
 }
 
 .hero-logo {
@@ -74,10 +72,10 @@ body {
 .hero h1 {
     margin: 0;
     color: var(--text-muted);
-    font-size: 16px;
-    max-width: 32rem;
-    font-weight: 400;
-    line-height: 1.3;
+    font-size: clamp(1.35rem, 2.4vw, 2rem);
+    max-width: 36rem;
+    font-weight: 600;
+    line-height: 1.35;
 }
 
 .brand-sv {
@@ -93,6 +91,93 @@ body {
     color: var(--text-muted);
     font-size: 1.025rem;
     max-width: 28rem;
+}
+
+.hero-subtitle {
+    font-size: clamp(1rem, 1.8vw, 1.2rem);
+    line-height: 1.6;
+    color: rgba(226, 232, 240, 0.9);
+}
+
+.primary-nav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem 1.25rem;
+    margin: 0.5rem 0 1rem;
+    padding: 0;
+}
+
+.primary-nav a {
+    color: rgba(226, 232, 240, 0.85);
+    font-size: 0.95rem;
+    font-weight: 500;
+    text-decoration: none;
+    letter-spacing: 0.01em;
+    transition: color 0.2s ease, text-decoration 0.2s ease;
+}
+
+.primary-nav a:hover,
+.primary-nav a:focus-visible {
+    color: #fff;
+    text-decoration: underline;
+}
+
+.noscript-message {
+    padding: 1rem 1.25rem;
+    border-radius: 16px;
+    background: color-mix(in srgb, var(--surface-alt) 84%, rgba(255, 255, 255, 0.08));
+    border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
+    color: var(--text-muted);
+    font-size: 0.95rem;
+    display: grid;
+    gap: 0.75rem;
+}
+
+.noscript-message a {
+    color: var(--text);
+    font-weight: 600;
+}
+
+.breadcrumbs {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.85rem;
+    color: rgba(226, 232, 240, 0.65);
+    margin: -0.25rem 0 0.5rem;
+}
+
+.breadcrumbs ol {
+    list-style: none;
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0;
+    margin: 0;
+    flex-wrap: wrap;
+}
+
+.breadcrumbs li {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+
+.breadcrumbs li + li::before {
+    content: \"•\";
+    opacity: 0.4;
+    font-size: 0.7rem;
+}
+
+.breadcrumbs a {
+    color: rgba(226, 232, 240, 0.75);
+    text-decoration: none;
+}
+
+.breadcrumbs a:hover,
+.breadcrumbs a:focus-visible {
+    color: #fff;
+    text-decoration: underline;
 }
 
 .resolver-form {
@@ -192,6 +277,7 @@ body {
 .result {
     display: grid;
     gap: 1.5rem;
+    margin-top: 0.5rem;
 }
 
 .video-card {
@@ -391,6 +477,15 @@ body {
     padding-left: 1.25rem;
     display: grid;
     gap: 0.35rem;
+    color: rgba(226, 232, 240, 0.85);
+}
+
+.seo-copy ol {
+    margin: 0;
+    padding-left: 1.25rem;
+    display: grid;
+    gap: 0.5rem;
+    color: rgba(226, 232, 240, 0.85);
 }
 
 .seo-copy code {
@@ -399,6 +494,119 @@ body {
     border-radius: 6px;
     color: var(--text);
     font-size: 0.95em;
+}
+
+.howto-steps {
+    counter-reset: howto;
+}
+
+.howto-steps li::marker {
+    font-weight: 600;
+    color: var(--accent);
+}
+
+.feature-grid {
+    display: grid;
+    gap: 1.5rem;
+}
+
+.feature-grid__items {
+    display: grid;
+    gap: 1rem;
+}
+
+.feature-card {
+    background: color-mix(in srgb, var(--surface-alt) 88%, rgba(255, 255, 255, 0.05));
+    border-radius: 20px;
+    padding: 1.4rem;
+    border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+    display: grid;
+    gap: 0.65rem;
+}
+
+.feature-card h3 {
+    margin: 0;
+    font-size: 1.1rem;
+    color: var(--text);
+}
+
+.feature-card p {
+    margin: 0;
+    color: rgba(226, 232, 240, 0.82);
+}
+
+.testimonials {
+    display: grid;
+    gap: 1.5rem;
+}
+
+.testimonials-grid {
+    display: grid;
+    gap: 1rem;
+}
+
+.testimonial {
+    margin: 0;
+    padding: 1.35rem 1.4rem;
+    border-radius: 20px;
+    background: color-mix(in srgb, var(--surface-alt) 75%, rgba(255, 255, 255, 0.02));
+    border: 1px solid color-mix(in srgb, var(--border) 65%, transparent);
+    display: grid;
+    gap: 0.75rem;
+}
+
+.testimonial blockquote {
+    margin: 0;
+    font-size: 0.98rem;
+    line-height: 1.55;
+    color: rgba(226, 232, 240, 0.92);
+}
+
+.testimonial figcaption {
+    font-size: 0.88rem;
+    color: rgba(148, 163, 209, 0.85);
+}
+
+.faq {
+    display: grid;
+    gap: 1rem;
+}
+
+.faq details {
+    border-radius: 16px;
+    background: color-mix(in srgb, var(--surface-alt) 85%, rgba(255, 255, 255, 0.03));
+    border: 1px solid color-mix(in srgb, var(--border) 75%, transparent);
+    padding: 0.85rem 1.1rem;
+}
+
+.faq summary {
+    cursor: pointer;
+    font-weight: 600;
+    color: rgba(241, 245, 249, 0.92);
+    outline: none;
+}
+
+.faq summary::-webkit-details-marker {
+    display: none;
+}
+
+.faq details[open] summary {
+    color: var(--accent-hover);
+}
+
+.faq p {
+    margin: 0.75rem 0 0;
+    color: rgba(226, 232, 240, 0.82);
+    line-height: 1.55;
+}
+
+.support p {
+    color: rgba(226, 232, 240, 0.9);
+}
+
+.legal p {
+    font-size: 0.95rem;
+    color: rgba(148, 163, 209, 0.9);
 }
 
 .donation-blurb {
@@ -432,17 +640,54 @@ body {
 }
 
 .footer {
-    text-align: center;
-    color: var(--text-muted);
-    font-size: 0.85rem;
     display: grid;
-    gap: 0.25rem;
+    gap: 0.75rem;
+    text-align: center;
+    border-top: 1px solid color-mix(in srgb, var(--border) 65%, transparent);
+    padding-top: 1.25rem;
+}
+
+.footer-nav {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.75rem 1.25rem;
+}
+
+.footer-nav a {
+    color: rgba(226, 232, 240, 0.7);
+    font-size: 0.9rem;
+    text-decoration: none;
+}
+
+.footer-nav a:hover,
+.footer-nav a:focus-visible {
+    color: #fff;
+    text-decoration: underline;
+}
+
+.footer p {
+    margin: 0;
+    color: rgba(226, 232, 240, 0.6);
+    font-size: 0.85rem;
+}
+
+.footer-made {
+    color: rgba(226, 232, 240, 0.75);
 }
 
 @media (min-width: 840px) {
     .video-card {
         grid-template-columns: minmax(0, 56%) minmax(0, 1fr);
         align-items: start;
+    }
+
+    .feature-grid__items {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .testimonials-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
     }
 }
 
@@ -469,6 +714,11 @@ body {
     .hero p {
         font-size: 0.95rem;
         max-width: 100%;
+    }
+
+    .primary-nav {
+        flex-direction: column;
+        gap: 0.5rem;
     }
 
     .input-group {

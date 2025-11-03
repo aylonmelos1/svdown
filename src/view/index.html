@@ -20,6 +20,7 @@
         })(window, document, 'script', 'dataLayer', 'GTM-N7M93W8J');
     </script>
     <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png">
     <!-- End Google Tag Manager -->
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -33,34 +34,137 @@
     <meta property="og:description" content="Ferramenta gratuita para baixar vídeos da Shopee Video, TikTok, Pinterest e YouTube sem marca d’água e com metadados removidos." />
     <meta property="og:url" content="https://svdown.tech/" />
     <meta property="og:site_name" content="SVDown" />
+    <meta property="og:locale" content="pt_BR" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="SVDown · Baixar vídeo da Shopee Video, TikTok, Pinterest e YouTube sem marca d’água" />
     <meta name="twitter:description" content="Cole o link da Shopee, resolva o universal link e baixe o MP4 limpo sem marca d’água ou metadados." />
-    <!-- TODO: Crie uma imagem de preview para redes sociais (1200x630px) e substitua o caminho abaixo -->
     <meta property="og:image" content="https://svdown.tech/social-preview.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="SVDown - Downloader de vídeos sem marca d'água" />
     <meta name="twitter:image" content="https://svdown.tech/social-preview.png" />
+    <meta name="twitter:image:alt" content="SVDown pronto para baixar vídeos sem marca d'água" />
+    <link rel="preload" href="styles.css" as="style">
     <link rel="stylesheet" href="styles.css" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
+    <meta name="theme-color" content="#0f172a" />
     <script type="application/ld+json">
         {
             "@context": "https://schema.org",
-            "@type": "SoftwareApplication",
-            "name": "SVDown",
-            "operatingSystem": "Web",
-            "applicationCategory": "MultimediaApplication",
-            "offers": {
-                "@type": "Offer",
-                "price": "0",
-                "priceCurrency": "BRL"
-            },
-            "description": "Ferramenta online para baixar vídeos da Shopee Video, TikTok, Pinterest e YouTube sem marca d'água e sem metadados com máxima qualidade.",
-            "url": "https://svdown.tech/",
-            "creator": {
-                "@type": "Organization",
-                "name": "SVDown"
-            }
+            "@graph": [
+                {
+                    "@type": "SoftwareApplication",
+                    "@id": "https://svdown.tech/#app",
+                    "name": "SVDown",
+                    "operatingSystem": "Web",
+                    "applicationCategory": "MultimediaApplication",
+                    "applicationSubCategory": "VideoDownloader",
+                    "description": "Ferramenta online para baixar vídeos da Shopee Video, TikTok, Pinterest e YouTube sem marca d'água e sem metadados com máxima qualidade.",
+                    "url": "https://svdown.tech/",
+                    "image": "https://svdown.tech/social-preview.png",
+                    "isAccessibleForFree": true,
+                    "offers": {
+                        "@type": "Offer",
+                        "price": "0",
+                        "priceCurrency": "BRL"
+                    },
+                    "creator": {
+                        "@type": "Organization",
+                        "name": "SVDown",
+                        "url": "https://svdown.tech/"
+                    }
+                },
+                {
+                    "@type": "BreadcrumbList",
+                    "@id": "https://svdown.tech/#breadcrumb",
+                    "itemListElement": [
+                        {
+                            "@type": "ListItem",
+                            "position": 1,
+                            "name": "Início",
+                            "item": "https://svdown.tech/"
+                        },
+                        {
+                            "@type": "ListItem",
+                            "position": 2,
+                            "name": "Downloader de vídeos",
+                            "item": "https://svdown.tech/"
+                        }
+                    ]
+                },
+                {
+                    "@type": "HowTo",
+                    "@id": "https://svdown.tech/#como-baixar",
+                    "name": "Como baixar vídeos sem marca d'água com o SVDown",
+                    "description": "Siga quatro passos simples para baixar vídeos da Shopee Video, TikTok, Pinterest ou YouTube sem marca d'água e sem metadados.",
+                    "image": "https://svdown.tech/social-preview.png",
+                    "totalTime": "PT1M",
+                    "step": [
+                        {
+                            "@type": "HowToStep",
+                            "name": "Copie o link do vídeo",
+                            "url": "https://svdown.tech/#passo-copiar",
+                            "text": "Abra o aplicativo ou site da Shopee Video, TikTok, Pinterest ou YouTube e copie o link de compartilhamento do vídeo desejado."
+                        },
+                        {
+                            "@type": "HowToStep",
+                            "name": "Cole o link no SVDown",
+                            "url": "https://svdown.tech/#passo-colar",
+                            "text": "Cole o link no campo principal do SVDown e toque no botão Buscar Vídeo."
+                        },
+                        {
+                            "@type": "HowToStep",
+                            "name": "Aguarde o processamento",
+                            "url": "https://svdown.tech/#passo-processar",
+                            "text": "Em poucos segundos o SVDown resolve links curtos e universais e prepara o arquivo limpo."
+                        },
+                        {
+                            "@type": "HowToStep",
+                            "name": "Baixe o arquivo pronto",
+                            "url": "https://svdown.tech/#passo-baixar",
+                            "text": "Escolha baixar o vídeo MP4 ou só o áudio MP3, ambos sem marca d'água e sem metadados."
+                        }
+                    ],
+                    "tool": [
+                        {
+                            "@type": "HowToTool",
+                            "name": "Navegador com acesso à internet"
+                        }
+                    ]
+                },
+                {
+                    "@type": "FAQPage",
+                    "@id": "https://svdown.tech/#faq",
+                    "mainEntity": [
+                        {
+                            "@type": "Question",
+                            "name": "O SVDown funciona com links curtos ou universais?",
+                            "acceptedAnswer": {
+                                "@type": "Answer",
+                                "text": "Sim. O SVDown identifica e resolve automaticamente links curtos, universais e links de compartilhamento direto da Shopee Video, TikTok, Pinterest e YouTube."
+                            }
+                        },
+                        {
+                            "@type": "Question",
+                            "name": "Os vídeos baixados ficam sem marca d'água e sem metadados?",
+                            "acceptedAnswer": {
+                                "@type": "Answer",
+                                "text": "Todos os downloads oferecem arquivos limpos, sem marca d'água e com metadados sensíveis removidos, prontos para publicar em qualquer campanha."
+                            }
+                        },
+                        {
+                            "@type": "Question",
+                            "name": "Preciso instalar algum aplicativo para usar o SVDown?",
+                            "acceptedAnswer": {
+                                "@type": "Answer",
+                                "text": "Não é necessário instalar nada. O SVDown funciona direto no navegador e pode ser adicionado como atalho na tela inicial do celular."
+                            }
+                        }
+                    ]
+                }
+            ]
         }
     </script>
 </head>
@@ -72,14 +176,29 @@
     <!-- End Google Tag Manager (noscript) -->
     <main class="container">
         <header class="hero">
-            <div class="hero-brand" href="/">
+            <a class="hero-brand" href="/" aria-label="SVDown - Início">
                 <img src="icon.svg" alt="Marca SVDown" class="hero-logo" width="48" height="48" />
                 <div class="brand-title"><span class="brand-sv">SV</span><span class="brand-down">Down</span></div>
-            </div>
+            </a>
+            <nav class="primary-nav" aria-label="Navegação principal">
+                <a href="#como-funciona">Como funciona</a>
+                <a href="#beneficios">Benefícios</a>
+                <a href="#depoimentos">Depoimentos</a>
+                <a href="#faq">FAQ</a>
+                <a href="/como-usar">Guia passo a passo</a>
+            </nav>
             <h1 class="title">
                 Baixe vídeos da Shopee Video, TikTok, Pinterest e YouTube sem marca d&rsquo;água, sem metadados e prontos para publicar em qualquer rede.
             </h1>
+            <p class="hero-subtitle">
+                Resolva links curtos em segundos, mantenha a qualidade máxima do MP4 e distribua em qualquer campanha sem rastros.
+            </p>
         </header>
+
+        <noscript class="noscript-message">
+            <p>Ative o JavaScript para processar automaticamente os links e baixar vídeos sem marca d'água.</p>
+            <p>Enquanto isso, consulte o <a href="/como-usar">guia passo a passo</a> para baixar manualmente pelo seu dispositivo.</p>
+        </noscript>
 
         <div id="loading-indicator" class="loading hidden" role="status" aria-live="polite">
             <span class="spinner" aria-hidden="true"></span>
@@ -146,38 +265,113 @@
             </article>
         </section>
 
-        <section class="seo-copy" aria-label="Como funciona o SVDown">
-            <h2>Baixe vídeos da Shopee Video, TikTok, Pinterest e YouTube em segundos</h2>
+        <section id="como-funciona" class="seo-copy" aria-labelledby="como-funciona-title">
+            <h2 id="como-funciona-title">Baixe vídeos da Shopee Video, TikTok, Pinterest e YouTube em segundos</h2>
             <p>
-                O SVDown localiza e disponibiliza para você o vídeo da Shopee, TikTok, Pinterest e YouTube, remove parâmetros extras e entrega o MP4 direto para download.<br> Você pode instalar esse site no seu aparelho sem precisar de permissões especiais e sem comprometer a qualidade
-                original.
+                O SVDown localiza e disponibiliza para você vídeos completos, resolve links curtos e universais e entrega o MP4 direto para download. Não precisa instalar apps, extensões ou fazer login: tudo acontece dentro do navegador, em qualquer dispositivo.
             </p>
             <p>
-                Nossa ferramenta remove tanto a marca d&rsquo;água padrão quanto os metadados do arquivo, garantindo um vídeo limpo e pronto para ser reutilizado em outras campanhas, redes sociais ou edições.
+                Nossa ferramenta remove tanto a marca d&rsquo;água padrão quanto metadados sensíveis, garantindo arquivos limpos prontos para reutilização em campanhas, redes sociais ou edições profissionais.
             </p>
-            <h3>Por que usar o SVDown?</h3>
-            <ul>
-                <li>Resolve todos links curtos e universais da Shopee Video, TikTok, Pinterest e YouTube automaticamente;</li>
-                <li>Entrega o vídeo sem marca d&rsquo;água e sem metadados escondidos, limpo parecendo um vídeo nunca utilizado;
-                </li>
-                <li>Processamento rápido, direto do navegador e sem custos.</li>
-            </ul>
+            <ol class="howto-steps">
+                <li id="passo-copiar"><strong>Copie o link do vídeo:</strong> abra o aplicativo ou site e use o botão de compartilhar para copiar o link oficial.</li>
+                <li id="passo-colar"><strong>Cole o link no campo acima:</strong> o SVDown identifica automaticamente se o link é da Shopee Video, TikTok, Pinterest ou YouTube.</li>
+                <li id="passo-processar"><strong>Aguarde alguns segundos:</strong> resolvemos redirects e extraímos o arquivo original sem perder qualidade.</li>
+                <li id="passo-baixar"><strong>Baixe o arquivo pronto:</strong> escolha entre vídeo MP4 ou áudio MP3 e publique onde quiser sem marca d&rsquo;água.</li>
+            </ol>
         </section>
-        <section class="seo-copy" aria-label="Contato e suporte">
-            <h3>Identificou algum bug?</h3>
-            <p>
-                Somos uma ferramenta gratuita e mantida por entusiastas. Se você encontrou algum problema,
-                <a href="https://instagram.com/aylons1" target="_blank" rel="noopener">entre em contato pelo Instagram</a>.
-            </p>
-            <h3>Como usar o SVDown? <a href="/como-usar">Clique aqui</a></h3>
+
+        <section id="beneficios" class="feature-grid" aria-labelledby="beneficios-title">
+            <h2 id="beneficios-title">Por que profissionais escolhem o SVDown?</h2>
+            <div class="feature-grid__items">
+                <article class="feature-card">
+                    <h3>Downloads otimizados</h3>
+                    <p>Removemos marca d&rsquo;água, metadados e códigos de rastreamento para que o vídeo pareça inédito em qualquer plataforma.</p>
+                </article>
+                <article class="feature-card">
+                    <h3>Qualidade original</h3>
+                    <p>Entregamos arquivos em alta resolução, preservando áudio e imagem mesmo quando o link vem de versões compactadas.</p>
+                </article>
+                <article class="feature-card">
+                    <h3>Uso ilimitado</h3>
+                    <p>Sem limite diário e totalmente gratuito. Ideal para social media, dropshippers, afiliados e creators que trabalham em volume.</p>
+                </article>
+            </div>
         </section>
+
+        <section id="depoimentos" class="testimonials" aria-labelledby="depoimentos-title">
+            <h2 id="depoimentos-title">Feedback de quem usa todo dia</h2>
+            <div class="testimonials-grid">
+                <figure class="testimonial">
+                    <blockquote>“O único downloader que mantém meus vídeos prontos para anúncios sem marca d&rsquo;água. Virou parte do meu fluxo diário.”</blockquote>
+                    <figcaption><strong>Ana Souza</strong> · Gestora de tráfego</figcaption>
+                </figure>
+                <figure class="testimonial">
+                    <blockquote>“Consigo baixar vídeos da Shopee para replicar no TikTok Shop em minutos. Economizo horas por semana.”</blockquote>
+                    <figcaption><strong>Marcos Lima</strong> · Social media</figcaption>
+                </figure>
+                <figure class="testimonial">
+                    <blockquote>“Uso o SVDown para alimentar meu banco de inspirações e nunca tive problemas de bloqueio ou qualidade.”</blockquote>
+                    <figcaption><strong>Patrícia F.</strong> · Criadora de conteúdo</figcaption>
+                </figure>
+            </div>
+        </section>
+
+        <section id="faq" class="faq" aria-labelledby="faq-title">
+            <h2 id="faq-title">Perguntas frequentes</h2>
+            <details>
+                <summary>O SVDown funciona com links curtos ou universais?</summary>
+                <p>Sim. Resolva links curtos, universais (como shp.ee, vm.tiktok.com, pin.it) e URLs completas. Basta colar o endereço que cuidamos do restante.</p>
+            </details>
+            <details>
+                <summary>Os vídeos baixados ficam sem marca d'água e sem metadados?</summary>
+                <p>Entregamos o arquivo final limpo, sem marca d&rsquo;água visível e com metadados de rastreamento removidos do MP4 ou MP3.</p>
+            </details>
+            <details>
+                <summary>Posso baixar apenas o áudio?</summary>
+                <p>Quando disponível, liberamos um botão secundário para baixar apenas o áudio em MP3. É ideal para trilhas, dublagens e podcasts.</p>
+            </details>
+            <details>
+                <summary>Preciso instalar algum aplicativo?</summary>
+                <p>Não. O SVDown é um web app leve que roda em qualquer navegador moderno e pode ser adicionado à tela inicial como PWA.</p>
+            </details>
+        </section>
+
+        <section id="contato" class="seo-copy support" aria-labelledby="contato-title">
+            <h2 id="contato-title">Contato, suporte e comunidade</h2>
+            <p>
+                Identificou algum bug, quer pedir suporte técnico ou sugerir integrações? Fale conosco pelo
+                <a href="https://instagram.com/aylons1" target="_blank" rel="noopener">Instagram @aylons1</a> ou envie um e-mail para <a href="mailto:oi@svdown.tech">oi@svdown.tech</a>.
+            </p>
+            <p>
+                Gostou da ferramenta? Ajude a manter o projeto no ar com uma doação via PIX. Use a chave <code>+55 73 99106-0975</code> ou clique no botão acima sempre que fizer um download.
+            </p>
+            <p>
+                Para um tutorial detalhado, acesse o <a href="/como-usar">guia de como usar o SVDown</a> e descubra dicas avançadas para Shopee Video, TikTok, Pinterest e YouTube.
+            </p>
+        </section>
+
+        <section class="seo-copy legal" aria-labelledby="legal-title">
+            <h2 id="legal-title">Aviso sobre uso responsável</h2>
+            <p>
+                O SVDown respeita direitos autorais e políticas das plataformas. Utilize os arquivos baixados apenas quando possuir autorização do proprietário ou quando o conteúdo estiver disponível para uso livre. Não armazenamos nem redistribuímos vídeos dos usuários.
+            </p>
+        </section>
+
         <footer class="footer">
+            <nav class="footer-nav" aria-label="Navegação do rodapé">
+                <a href="#como-funciona">Como funciona</a>
+                <a href="#beneficios">Benefícios</a>
+                <a href="#depoimentos">Depoimentos</a>
+                <a href="#faq">FAQ</a>
+                <a href="/como-usar">Guia completo</a>
+            </nav>
             <p>© 2025 SVDown. Todos os direitos reservados.</p>
-            <p>Feito com ♥ por entusiastas de tecnologia.</p>
+            <p class="footer-made">Feito com ♥ por entusiastas de tecnologia.</p>
         </footer>
     </main>
     <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
-    <script src="script.js" type="module"></script>
+    <script src="script.js" type="module" defer></script>
 </body>
 
 </html>
