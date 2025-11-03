@@ -85,23 +85,40 @@ export class MetaService implements ResolveService {
         const captured: Record<string, string> = {};
         const elements: Record<string, any> = {};
 
-        const createElement = (id: string) => {
-            if (elements[id]) return elements[id];
+        const buildElement = (key?: string) => {
             let innerHTMLValue = '';
-            const element = {
+            return {
+                style: {},
+                classList: {
+                    add: () => undefined,
+                    remove: () => undefined,
+                },
+                reset: () => undefined,
                 set innerHTML(value: string) {
                     innerHTMLValue = value;
-                    captured[id] = value;
+                    if (key) captured[key] = value;
                 },
                 get innerHTML() {
                     return innerHTMLValue;
                 },
                 remove() {
-                    captured[id] = '';
+                    if (key) captured[key] = '';
                 },
             };
-            elements[id] = element;
-            return element;
+        };
+
+        const createElement = (id: string) => {
+            if (!elements[id]) {
+                elements[id] = buildElement(id);
+            }
+            return elements[id];
+        };
+
+        const querySelector = (selector: string) => {
+            if (selector?.startsWith('#')) {
+                return createElement(selector.slice(1));
+            }
+            return buildElement(undefined);
         };
 
         const context = {
@@ -110,8 +127,10 @@ export class MetaService implements ResolveService {
                 scrollingElement: {},
                 documentElement: {},
                 getElementById: (id: string) => createElement(id),
-                querySelector: () => ({}),
+                querySelector,
+                querySelectorAll: () => ({ forEach: () => undefined }),
             },
+            navigator: {},
             gtag: () => undefined,
             getPosition: () => ({ y: 0 }),
             animate: () => undefined,
@@ -124,7 +143,34 @@ export class MetaService implements ResolveService {
             throw new Error('Falha ao decodificar resposta do Snapsave');
         }
 
-        return captured['download-section'] || '';
+        const downloadHtml = captured['download-section'] || '';
+        if (!downloadHtml) {
+            const alertMessage = this.normalizeAlert(captured['alert']);
+            if (this.isPrivateAlert(alertMessage)) {
+                throw new Error('Perfil privado. O Facebook marcou esse vídeo como privado.');
+            }
+            if (alertMessage) {
+                throw new Error(alertMessage);
+            }
+        }
+
+        return downloadHtml;
+    }
+
+    private normalizeAlert(raw?: string): string {
+        if (!raw) return '';
+        try {
+            const $ = cheerio.load(`<div>${raw}</div>`);
+            return $.text().trim();
+        } catch {
+            return raw;
+        }
+    }
+
+    private isPrivateAlert(message?: string): boolean {
+        if (!message) return false;
+        const normalized = message.toLowerCase();
+        return normalized.includes('pribadi') || normalized.includes('privado') || normalized.includes('private');
     }
 
     private extractMedia(html: string): { videoUrl?: string; thumbnail?: string; qualityLabel?: string } {
