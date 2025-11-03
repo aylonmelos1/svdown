@@ -167,7 +167,6 @@ if (!resolverSection || !input || !resolveButton || !resultSection || !videoElem
             renderGenericResult(data);
         }
 
-        resolverSection.classList.add('hidden');
         resultSection.classList.remove('hidden');
     }
 
@@ -393,7 +392,6 @@ if (!resolverSection || !input || !resolveButton || !resultSection || !videoElem
         clearVideoElement(videoElement);
         clearVideoElement(genericVideoElement);
         resultSection.classList.add('hidden');
-        resolverSection.classList.remove('hidden');
         resetMediaState();
         downloadButtonCtrl?.reset();
         genericVideoButtonCtrl?.reset();

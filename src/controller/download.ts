@@ -6,7 +6,6 @@ import { promises as fs } from 'fs';
 import path from 'path';
 import os from 'os';
 import ffmpegPath from 'ffmpeg-static';
-import { sanitizeBaseName } from '../services/utils';
 
 const MAX_FILE_SIZE_BYTES = 150 * 1024 * 1024; // 150 MB
 const DOWNLOAD_TIMEOUT_MS = 30_000;
@@ -200,30 +199,46 @@ export const downloadVideoHandler = async (req: Request, res: Response) => {
 };
 
 function ensureExtension(fileName: string, extension: string) {
-    if (fileName.toLowerCase().endsWith(extension.toLowerCase())) {
-        return fileName;
+    if (!extension) return fileName;
+    const normalizedExt = extension.startsWith('.') ? extension : `.${extension}`;
+    const currentExt = path.extname(fileName);
+    if (!currentExt) {
+        return `${fileName}${normalizedExt}`;
     }
-    return `${fileName}${extension}`;
+    if (currentExt.toLowerCase() !== normalizedExt.toLowerCase()) {
+        return `${fileName.slice(0, -currentExt.length)}${normalizedExt}`;
+    }
+    return fileName;
 }
 
 function resolveFileName(url: string, provided: string | undefined, mediaType: 'video' | 'audio') {
     const defaultBase = mediaType === 'audio' ? 'audio' : 'video';
     const extension = mediaType === 'audio' ? '.mp3' : '.mp4';
-    if (provided) {
-        const base = sanitizeBaseName(provided.replace(/\.[^.]+$/, '')) || defaultBase;
-        return ensureExtension(base, extension);
+    const providedName = cleanFileNameCandidate(provided);
+    if (providedName) {
+        return ensureExtension(providedName, extension);
     }
 
-    const parsedBase = sanitizeBaseName(extractFileName(url)) || defaultBase;
-    return ensureExtension(parsedBase, extension);
+    const derivedName = cleanFileNameCandidate(extractFileName(url));
+    if (derivedName) {
+        return ensureExtension(derivedName, extension);
+    }
+
+    return `${defaultBase}${extension}`;
 }
 
 function resolveOriginalFileName(url: string, fallback: string) {
-    const original = extractFileName(url);
-    if (!original) return fallback;
-    const base = sanitizeBaseName(original.replace(/\.[^.]+$/, '')) || fallback.replace(/\.[^.]+$/, '');
-    const ext = path.extname(original) || path.extname(fallback) || '.bin';
-    return `${base}${ext}`;
+    const fallbackName = cleanFileNameCandidate(fallback) || 'download';
+    const fallbackExt = path.extname(fallbackName) || '.bin';
+    const originalCandidate = cleanFileNameCandidate(extractFileName(url));
+    if (!originalCandidate) {
+        return ensureExtension(fallbackName, fallbackExt);
+    }
+    const originalExt = path.extname(originalCandidate);
+    if (!originalExt) {
+        return ensureExtension(originalCandidate, fallbackExt);
+    }
+    return originalCandidate;
 }
 
 function extractFileName(url: string): string | undefined {
@@ -233,6 +248,27 @@ function extractFileName(url: string): string | undefined {
         return lastSegment || undefined;
     } catch {
         return undefined;
+    }
+}
+
+function cleanFileNameCandidate(value?: string | null) {
+    if (!value) return '';
+    const decoded = safeDecodeURIComponent(value);
+    const basePart = decoded.split(/[?#]/)[0];
+    const trimmed = basePart.trim();
+    if (!trimmed) return '';
+    const invalidChars = /[<>:"/\\|?*\x00-\x1F]/g;
+    const collapsedDots = trimmed.replace(/\.\.+/g, '.');
+    const sanitized = collapsedDots.replace(invalidChars, '-');
+    const cleaned = sanitized.replace(/\s{2,}/g, ' ').trim();
+    return cleaned.replace(/^[-.]+|[-.]+$/g, '');
+}
+
+function safeDecodeURIComponent(value: string) {
+    try {
+        return decodeURIComponent(value);
+    } catch {
+        return value;
     }
 }
 
