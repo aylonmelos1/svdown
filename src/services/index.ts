@@ -2,6 +2,7 @@ import { ShopeeService } from './shopeeService';
 import { PinterestService } from './pinterestService';
 import { TiktokService } from './tiktokService';
 import { YoutubeService } from './youtubeService';
+import { MetaService } from './metaService';
 import type { ResolveService } from './types';
 
 export const services: ResolveService[] = [
@@ -9,4 +10,5 @@ export const services: ResolveService[] = [
     new PinterestService(),
     new TiktokService(),
     new YoutubeService(),
+    new MetaService(),
 ];
