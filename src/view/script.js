@@ -74,11 +74,11 @@ if (!resolverSection || !input || !resolveButton || !resultSection || !videoElem
         }
     });
 
-    videoCaption.addEventListener('click', copyCaptionToClipboard);
+    videoCaption.addEventListener('click', () => copyCaptionToClipboard(videoCaption, captionBubble));
     videoCaption.addEventListener('keydown', event => {
         if (event.key === 'Enter' || event.key === ' ') {
             event.preventDefault();
-            copyCaptionToClipboard();
+            copyCaptionToClipboard(videoCaption, captionBubble);
         }
     });
 
