@@ -522,6 +522,9 @@ if (!resolverSection || !input || !resolveButton || !resultSection || !videoElem
             genericTitle.textContent = '';
             genericTitle.classList.add('hidden');
         }
+        if (typeof window !== 'undefined' && typeof window.scrollTo === 'function') {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
     }
 
     function resetMediaState() {
