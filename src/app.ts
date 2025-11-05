@@ -31,6 +31,16 @@ app.get('/', (_req, res) => {
   res.sendFile(path.join(viewPath, 'index.html'));
 });
 
+app.get('/en', (_req, res) => {
+  log.info('Rendering view /en');
+  res.sendFile(path.join(viewPath, 'en', 'index.html'));
+});
+
+app.get('/en/how-to', (_req, res) => {
+  log.info('Rendering view /en/how-to');
+  res.sendFile(path.join(viewPath, 'en', 'how-to.html'));
+});
+
 app.get('/como-usar', (_req, res) => {
   log.info('Rendering view /como-usar');
   res.sendFile(path.join(viewPath, 'como-usar.html'));

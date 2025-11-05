@@ -55,12 +55,85 @@ const state = {
     resolveStartTime: 0,
 };
 
+const lang = document.body?.dataset?.lang || 'pt';
+const translations = {
+    pt: {
+        downloadVideo: 'Baixar vídeo',
+        downloading: 'Baixando...',
+        downloadAudio: 'Baixar áudio (MP3)',
+        preparingMp3: 'Preparando MP3...',
+        enterLink: 'Informe um link.',
+        resolvingLink: 'Resolvendo link...',
+        resolveFailed: 'Não foi possível resolver o link.',
+        resolveSuccess: 'Link resolvido com sucesso!',
+        mediaFound: 'Mídia encontrada',
+        noDownloadAvailable: 'Nenhum arquivo disponível para download.',
+        preparingAudio: 'Preparando áudio...',
+        preparingDownload: 'Preparando download...',
+        downloadStartError: 'Falha ao iniciar download.',
+        metadataCleanFailed: 'Não foi possível remover os metadados do vídeo.',
+        audioConvertFailed: 'Não foi possível converter o áudio para MP3.',
+        downloadComplete: 'Download concluído! Confira sua pasta de downloads.',
+        downloadFailed: 'Não foi possível baixar o arquivo.',
+        readyForAnother: 'Pronto para baixar outro vídeo!',
+        legendCopiedFeedback: 'Legenda copiada para a área de transferência!',
+        legendCopiedToast: 'Legenda copiada!',
+        legendCopyFailed: 'Não foi possível copiar a legenda.',
+        legendUnavailable: 'Nenhuma legenda disponível para copiar.',
+        clickToCopy: 'Clique para copiar',
+        copied: 'Copiado!',
+        pixCopyFeedback: 'Chave PIX copiada. Obrigado pelo apoio!',
+        pixCopyToast: 'Chave PIX copiada! Obrigado pelo apoio ❤',
+        pixCopyFailed: 'Não foi possível copiar a chave PIX.',
+        processing: 'Processando...',
+        unknownCreator: 'Criador desconhecido',
+        noDescription: 'Sem descrição definida.'
+    },
+    en: {
+        downloadVideo: 'Download video',
+        downloading: 'Downloading...',
+        downloadAudio: 'Download audio (MP3)',
+        preparingMp3: 'Preparing MP3...',
+        enterLink: 'Enter a link.',
+        resolvingLink: 'Resolving link...',
+        resolveFailed: 'We could not resolve the link.',
+        resolveSuccess: 'Link resolved successfully!',
+        mediaFound: 'Media found',
+        noDownloadAvailable: 'No file available for download.',
+        preparingAudio: 'Preparing audio...',
+        preparingDownload: 'Preparing download...',
+        downloadStartError: 'Failed to start the download.',
+        metadataCleanFailed: 'Could not remove video metadata.',
+        audioConvertFailed: 'Could not convert the audio to MP3.',
+        downloadComplete: 'Download complete! Check your downloads folder.',
+        downloadFailed: 'Could not download the file.',
+        readyForAnother: 'Ready to grab another video!',
+        legendCopiedFeedback: 'Caption copied to your clipboard!',
+        legendCopiedToast: 'Caption copied!',
+        legendCopyFailed: 'Could not copy the caption.',
+        legendUnavailable: 'No caption available to copy.',
+        clickToCopy: 'Click to copy',
+        copied: 'Copied!',
+        pixCopyFeedback: 'PIX key copied. Thanks for the support!',
+        pixCopyToast: 'PIX key copied! Thanks for the support ❤',
+        pixCopyFailed: 'Could not copy the PIX key.',
+        processing: 'Processing...',
+        unknownCreator: 'Unknown creator',
+        noDescription: 'No caption available.'
+    }
+};
+
+const tr = (key) => {
+    const table = translations[lang] || translations.pt;
+    return table[key] ?? translations.pt[key] ?? key;
+};
+
 if (!resolverSection || !input || !resolveButton || !resultSection || !videoElement || !videoCaption || !downloadLink) {
     console.warn('SVDown: elementos essenciais não encontrados, script abortado.');
 } else {
-    const downloadButtonCtrl = initDownloadButton(downloadLink, 'Baixar vídeo', 'Baixando...');
-    const genericVideoButtonCtrl = initDownloadButton(genericDownloadVideo, 'Baixar vídeo', 'Baixando...');
-    const genericAudioButtonCtrl = initDownloadButton(genericDownloadAudio, 'Baixar áudio (MP3)', 'Preparando MP3...');
+    const downloadButtonCtrl = initDownloadButton(downloadLink, tr('downloadVideo'), tr('downloading'));
+    const genericVideoButtonCtrl = initDownloadButton(genericDownloadVideo, tr('downloadVideo'), tr('downloading'));
+    const genericAudioButtonCtrl = initDownloadButton(genericDownloadAudio, tr('downloadAudio'), tr('preparingMp3'));
 
     resolveButton.addEventListener('click', () => handleResolve(input.value.trim()));
     downloadLink.addEventListener('click', (event) => handleDownload(event, 'video', downloadButtonCtrl));
@@ -102,7 +175,7 @@ if (!resolverSection || !input || !resolveButton || !resultSection || !videoElem
 
     async function handleResolve(link) {
         if (!link) {
-            showFeedback('Informe um link.', true);
+            showFeedback(tr('enterLink'), true);
             return;
         }
 
@@ -120,8 +193,9 @@ if (!resolverSection || !input || !resolveButton || !resultSection || !videoElem
         }
         dl('paste_link', { link_hash: state.linkHash, domain, has_query: hasQuery, ts: Date.now() });
 
-        setLoading(true, 'Resolvendo link...');
-        showFeedback('Resolvendo link...');
+        const resolvingMessage = tr('resolvingLink');
+        setLoading(true, resolvingMessage);
+        showFeedback(resolvingMessage);
 
         try {
             const response = await fetch('/api/resolve', {
@@ -133,16 +207,17 @@ if (!resolverSection || !input || !resolveButton || !resultSection || !videoElem
             const data = await response.json();
             if (!response.ok) {
                 const responseTimeMs = Math.round(performance.now() - state.resolveStartTime);
+                const resolveFailedMessage = tr('resolveFailed');
                 dl('resolve_error', {
                     link_hash: state.linkHash,
-                    error_message: (data && data.error) || 'Não foi possível resolver o link.',
+                    error_message: (data && data.error) || resolveFailedMessage,
                     response_time_ms: responseTimeMs
                 });
-                throw new Error(data?.error || 'Não foi possível resolver o link.');
+                throw new Error(data?.error || resolveFailedMessage);
             }
 
             renderServiceResult(data);
-            showFeedback('Link resolvido com sucesso!');
+            showFeedback(tr('resolveSuccess'));
             updateUrlWithQuery(link);
 
             const responseTimeMs = Math.round(performance.now() - state.resolveStartTime);
@@ -154,9 +229,11 @@ if (!resolverSection || !input || !resolveButton || !resultSection || !videoElem
 
         } catch (error) {
             console.error(error);
-            const message = error instanceof Error ? error.message : 'Erro ao resolver link.';
-            showFeedback(message, true);
-            showToast('Não foi possível resolver o link.', true);
+            const message = error instanceof Error && error.message ? error.message : tr('resolveFailed');
+            const fallback = tr('resolveFailed');
+            const displayMessage = lang === 'pt' ? message : fallback;
+            showFeedback(displayMessage, true);
+            showToast(fallback, true);
             resultSection.classList.add('hidden');
             resetMediaState();
         } finally {
@@ -207,8 +284,8 @@ if (!resolverSection || !input || !resolveButton || !resultSection || !videoElem
         const pageProps = data?.pageProps || {};
         const mediaInfo = pageProps?.mediaInfo || {};
 
-        creatorName.textContent = mediaInfo?.userInfo?.videoUserName || data?.title || 'Criador desconhecido';
-        videoCaption.textContent = mediaInfo?.video?.caption || 'Sem descrição definida.';
+        creatorName.textContent = mediaInfo?.userInfo?.videoUserName || data?.title || tr('unknownCreator');
+        videoCaption.textContent = mediaInfo?.video?.caption || tr('noDescription');
 
         const likeCountContainer = likeCount?.parentElement;
         const commentCountContainer = commentCount?.parentElement;
@@ -269,7 +346,7 @@ if (!resolverSection || !input || !resolveButton || !resultSection || !videoElem
         let headingText = '';
 
         if (service === 'youtube') {
-            headingText = titleText || 'Mídia encontrada';
+            headingText = titleText || tr('mediaFound');
         } else {
             if (!descriptionText && titleText) {
                 descriptionText = titleText;
@@ -316,14 +393,15 @@ if (!resolverSection || !input || !resolveButton || !resultSection || !videoElem
         const selection = mediaType === 'audio' ? state.media.audio : state.media.video;
 
         if (!selection || !selection.url) {
-            showFeedback('Nenhum arquivo disponível para download.', true);
-            showToast('Nenhum arquivo disponível para download.', true);
+            const unavailable = tr('noDownloadAvailable');
+            showFeedback(unavailable, true);
+            showToast(unavailable, true);
             return;
         }
 
-        const loadingMessage = mediaType === 'audio' ? 'Preparando áudio...' : 'Preparando download...';
+        const loadingMessage = mediaType === 'audio' ? tr('preparingAudio') : tr('preparingDownload');
         setLoading(true, loadingMessage);
-        buttonCtrl.setLoading(true, mediaType === 'audio' ? 'Preparando MP3...' : undefined);
+        buttonCtrl.setLoading(true, mediaType === 'audio' ? tr('preparingMp3') : undefined);
 
         try {
             const selectionHash = await safeHash(selection.url);
@@ -339,24 +417,25 @@ if (!resolverSection || !input || !resolveButton || !resultSection || !videoElem
             const requestUrl = buildDownloadRequest(selection, mediaType);
             const response = await fetch(requestUrl);
             if (!response.ok) {
+                const startError = tr('downloadStartError');
                 if (selectionHash) {
                     dl('download_error', {
                         link_hash: selectionHash,
-                        error_message: 'Falha ao iniciar download.',
+                        error_message: startError,
                         media_type: mediaType,
                         service: state.media.service || 'unknown',
                     });
                 }
-                throw new Error('Falha ao iniciar download.');
+                throw new Error(startError);
             }
 
             const metadataHeader = response.headers.get('X-Metadata-Cleaned');
             if (metadataHeader === 'false') {
-                showToast('Não foi possível remover os metadados do vídeo.', true);
+                showToast(tr('metadataCleanFailed'), true);
             }
             const audioHeader = response.headers.get('X-Audio-Transcoded');
             if (audioHeader === 'false') {
-                showToast('Não foi possível converter o áudio para MP3.', true);
+                showToast(tr('audioConvertFailed'), true);
             }
 
             const blob = await response.blob();
@@ -365,8 +444,9 @@ if (!resolverSection || !input || !resolveButton || !resultSection || !videoElem
             const serverFileName = extractFileNameFromContentDisposition(contentDisposition);
             const downloadName = serverFileName || buildFallbackFileName(selection.fileName, mediaType);
             triggerBrowserDownload(objectUrl, downloadName, mediaType);
-            showFeedback('Download concluído! Confira sua pasta de downloads.');
-            showToast('Download concluído! Confira sua pasta de downloads.');
+            const downloadSuccess = tr('downloadComplete');
+            showFeedback(downloadSuccess);
+            showToast(downloadSuccess);
 
             if (selectionHash) {
                 dl('download_complete', {
@@ -379,9 +459,11 @@ if (!resolverSection || !input || !resolveButton || !resultSection || !videoElem
             }
         } catch (error) {
             console.error(error);
-            const message = error instanceof Error ? error.message : 'Não foi possível baixar o arquivo.';
-            showFeedback(message, true);
-            showToast('Não foi possível baixar o arquivo.', true);
+            const fallback = tr('downloadFailed');
+            const message = error instanceof Error && error.message ? error.message : fallback;
+            const displayMessage = lang === 'pt' ? message : fallback;
+            showFeedback(displayMessage, true);
+            showToast(displayMessage, true);
 
             try {
                 const selectionHash = await safeHash(selection.url);
@@ -425,8 +507,9 @@ if (!resolverSection || !input || !resolveButton || !resultSection || !videoElem
         genericAudioButtonCtrl?.reset();
         shareLink?.classList.add('hidden');
         updateUrlWithQuery('');
-        showFeedback('Pronto para baixar outro vídeo!');
-        showToast('Pronto para baixar outro vídeo!');
+        const ready = tr('readyForAnother');
+        showFeedback(ready);
+        showToast(ready);
         resetCaptionBubble(captionBubble);
         resetCaptionBubble(genericCaptionBubble);
         if (genericCaptionWrapper) {
@@ -472,7 +555,7 @@ if (!resolverSection || !input || !resolveButton || !resultSection || !videoElem
         feedback.classList.remove('hidden');
     }
 
-    function setLoading(stateValue, message = 'Processando...') {
+    function setLoading(stateValue, message = tr('processing')) {
         if (message && loaderText) loaderText.textContent = message;
         loader?.classList.toggle('hidden', !stateValue);
         resolveButton.disabled = stateValue;
@@ -489,8 +572,9 @@ if (!resolverSection || !input || !resolveButton || !resultSection || !videoElem
     async function copyCaptionToClipboard(targetCaption = videoCaption, bubbleElement = captionBubble) {
         const text = targetCaption?.textContent?.trim();
         if (!text) {
-            showFeedback('Nenhuma legenda disponível para copiar.', true);
-            showToast('Nenhuma legenda disponível para copiar.', true);
+            const unavailable = tr('legendUnavailable');
+            showFeedback(unavailable, true);
+            showToast(unavailable, true);
             return;
         }
 
@@ -510,9 +594,9 @@ if (!resolverSection || !input || !resolveButton || !resultSection || !videoElem
         if (navigator.clipboard?.writeText) {
             try {
                 await navigator.clipboard.writeText(text);
-                showFeedback('Legenda copiada para a área de transferência!');
+                showFeedback(tr('legendCopiedFeedback'));
                 showCaptionBubble(bubbleElement);
-                showToast('Legenda copiada!');
+                showToast(tr('legendCopiedToast'));
                 await pushCopiedEvent();
             } catch (_) {
                 fallbackCopy(text, bubbleElement);
@@ -535,13 +619,14 @@ if (!resolverSection || !input || !resolveButton || !resultSection || !videoElem
             textarea.select();
             document.execCommand('copy');
             document.body.removeChild(textarea);
-            showFeedback('Legenda copiada para a área de transferência!');
+            showFeedback(tr('legendCopiedFeedback'));
             showCaptionBubble(bubbleElement);
-            showToast('Legenda copiada!');
+            showToast(tr('legendCopiedToast'));
         } catch (error) {
             console.error(error);
-            showFeedback('Não foi possível copiar a legenda.', true);
-            showToast('Não foi possível copiar a legenda.', true);
+            const fail = tr('legendCopyFailed');
+            showFeedback(fail, true);
+            showToast(fail, true);
         }
     }
 
@@ -551,8 +636,8 @@ if (!resolverSection || !input || !resolveButton || !resultSection || !videoElem
             navigator.clipboard
                 .writeText(value)
                 .then(() => {
-                    showFeedback('Chave PIX copiada. Obrigado pelo apoio!');
-                    showToast('Chave PIX copiada! Obrigado pelo apoio ❤');
+                    showFeedback(tr('pixCopyFeedback'));
+                    showToast(tr('pixCopyToast'));
                 })
                 .catch(() => fallbackCopyPix(value));
         } else {
@@ -571,12 +656,13 @@ if (!resolverSection || !input || !resolveButton || !resultSection || !videoElem
             textarea.select();
             document.execCommand('copy');
             document.body.removeChild(textarea);
-            showFeedback('Chave PIX copiada. Obrigado pelo apoio!');
-            showToast('Chave PIX copiada! Obrigado pelo apoio ❤');
+            showFeedback(tr('pixCopyFeedback'));
+            showToast(tr('pixCopyToast'));
         } catch (error) {
             console.error(error);
-            showFeedback('Não foi possível copiar a chave PIX.', true);
-            showToast('Não foi possível copiar a chave PIX.', true);
+            const fail = tr('pixCopyFailed');
+            showFeedback(fail, true);
+            showToast(fail, true);
         }
     }
 
@@ -611,12 +697,12 @@ if (!resolverSection || !input || !resolveButton || !resultSection || !videoElem
             captionBubbleTimers.delete(bubbleElement);
         }
         bubbleElement.classList.remove('show');
-        bubbleElement.textContent = 'Clique para copiar';
+        bubbleElement.textContent = tr('clickToCopy');
     }
 
     function showCaptionBubble(bubbleElement = captionBubble) {
         if (!bubbleElement) return;
-        bubbleElement.textContent = 'Copiado!';
+        bubbleElement.textContent = tr('copied');
         bubbleElement.classList.add('show');
         const existingTimer = captionBubbleTimers.get(bubbleElement);
         if (existingTimer) {
@@ -624,7 +710,7 @@ if (!resolverSection || !input || !resolveButton || !resultSection || !videoElem
         }
         const timer = setTimeout(() => {
             bubbleElement.classList.remove('show');
-            bubbleElement.textContent = 'Clique para copiar';
+            bubbleElement.textContent = tr('clickToCopy');
             captionBubbleTimers.delete(bubbleElement);
         }, 1400);
         captionBubbleTimers.set(bubbleElement, timer);
