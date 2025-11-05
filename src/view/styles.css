@@ -419,6 +419,35 @@ body {
     transition: transform 0.15s ease, box-shadow 0.2s ease;
 }
 
+.btn.btn-donate {
+    background: #9a2afc;
+    color: #ffffff;
+    border-color: transparent;
+    box-shadow: 0 0px 0px 0px rgba(154, 42, 252, 0.10);
+}
+
+.btn.btn-donate:hover,
+.btn.btn-donate:focus-visible {
+    transform: translateY(-2px);
+    box-shadow: 0 22px 40px rgba(154, 42, 252, 0.32);
+}
+
+.btn-donate {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.8rem 1.3rem;
+    border-radius: 14px;
+    border: 1px solid transparent;
+    background-color: #9a2afc;
+    color: #ffffff;
+    font-weight: 600;
+    text-decoration: none;
+    cursor: pointer;
+    transition: transform 0.15s ease, box-shadow 0.2s ease;
+}
+
 .btn-link {
     border: none;
     background: none;
@@ -649,6 +678,262 @@ body {
     border-radius: 6px;
     color: var(--text);
     font-size: 0.95em;
+}
+
+.donation-tip {
+    margin: 0.75rem 0 0;
+    font-size: 0.9rem;
+    color: rgba(226, 232, 240, 0.75);
+}
+
+.donation-tip code {
+    background: rgba(148, 163, 209, 0.18);
+    padding: 0.1rem 0.35rem;
+    border-radius: 4px;
+    color: #e2e8f0;
+    font-size: 0.9em;
+}
+
+.pix-qr[hidden] {
+    display: none !important;
+}
+
+.pix-qr {
+    margin: 0.85rem 0 0;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.6rem;
+}
+
+.pix-qr img {
+    width: 180px;
+    height: 180px;
+    border-radius: 12px;
+    background: #fff;
+    padding: 0.5rem;
+    box-shadow: 0 10px 30px rgba(15, 23, 42, 0.35);
+}
+
+.pix-qr figcaption {
+    margin: 0;
+    font-size: 0.85rem;
+    color: rgba(226, 232, 240, 0.7);
+}
+
+body.modal-open {
+    overflow: hidden;
+}
+
+.donation-modal.hidden {
+    display: none;
+}
+
+.donation-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.donation-modal__overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.68);
+    backdrop-filter: blur(2px);
+}
+
+.donation-modal__dialog {
+    position: relative;
+    z-index: 1;
+    width: min(540px, calc(100vw - 2rem));
+    max-height: calc(100vh - 4rem);
+    border-radius: 20px;
+    background: color-mix(in srgb, var(--surface) 96%, rgba(15, 23, 42, 0.85));
+    border: 1px solid color-mix(in srgb, var(--border) 75%, transparent);
+    overflow: hidden;
+    box-shadow: 0 25px 60px rgba(8, 15, 26, 0.45);
+}
+
+.donation-modal__content {
+    padding: 2rem 2.25rem;
+    overflow-y: auto;
+    max-height: inherit;
+}
+
+.donation-modal__close {
+    position: absolute;
+    top: 0.9rem;
+    right: 0.9rem;
+    width: 2.2rem;
+    height: 2.2rem;
+    border-radius: 50%;
+    border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+    background: transparent;
+    color: var(--text);
+    font-size: 1.5rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.donation-modal__close:hover,
+.donation-modal__close:focus-visible {
+    background: rgba(148, 163, 209, 0.15);
+}
+
+.donation-modal__content h2 {
+    margin: 0 0 0.5rem 0;
+    font-size: 1.6rem;
+}
+
+.donation-modal__content p {
+    margin: 0 0 1.15rem 0;
+    color: rgba(226, 232, 240, 0.86);
+}
+
+.pix-form {
+    margin-top: 1.5rem;
+}
+
+.pix-label {
+    display: block;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 0.35rem;
+}
+
+.pix-amount-input {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    padding: 0.75rem 1rem;
+    border-radius: 14px;
+    background: rgba(15, 23, 42, 0.5);
+    border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+}
+
+.pix-amount-input input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    color: var(--text);
+    font-size: 1.1rem;
+    font-weight: 600;
+    outline: none;
+}
+
+.pix-amount-input input::placeholder {
+    color: rgba(148, 163, 209, 0.5);
+}
+
+.pix-currency {
+    font-weight: 600;
+    color: rgba(226, 232, 240, 0.9);
+}
+
+.pix-help {
+    margin: 0.5rem 0 0;
+    font-size: 0.9rem;
+    color: rgba(148, 163, 209, 0.8);
+}
+
+.pix-quick-values {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+    margin: 1.4rem 0 0.75rem;
+}
+
+.pix-quick-values button {
+    border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+    background: rgba(15, 23, 42, 0.4);
+    color: var(--text);
+    border-radius: 12px;
+    padding: 0.55rem 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.2s ease;
+}
+
+.pix-quick-values button:hover,
+.pix-quick-values button:focus-visible {
+    background: color-mix(in srgb, var(--accent) 35%, transparent);
+    border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+}
+
+.pix-feedback {
+    min-height: 1.2rem;
+    margin: 0.65rem 0 0;
+    font-size: 0.9rem;
+    color: rgba(248, 250, 252, 0.85);
+}
+
+.pix-feedback.error {
+    color: #fda4af;
+}
+
+.pix-payload-block {
+    margin-top: 1.4rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+}
+
+.pix-payload-copy-wrapper {
+    position: relative;
+}
+
+.pix-payload-copy-wrapper .caption-bubble {
+    top: -15px;
+    right: 16px;
+}
+
+.pix-payload-copy {
+    border-radius: 14px;
+    background: rgba(15, 23, 42, 0.6);
+    border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+    color: rgba(226, 232, 240, 0.92);
+    padding: 0.85rem 1rem;
+    font-family: var(--font-mono, 'Fira Code', 'SFMono-Regular', Consolas, 'Liberation Mono', monospace);
+    font-size: 0.82rem;
+    line-height: 1.55;
+    white-space: pre-wrap;
+    word-break: break-all;
+    overflow-wrap: anywhere;
+    min-height: 126px;
+    max-height: 220px;
+    overflow-y: auto;
+    cursor: pointer;
+    transition: border-color 0.2s ease, transform 0.2s ease;
+}
+
+.pix-payload-copy:hover,
+.pix-payload-copy:focus-visible {
+    border-color: color-mix(in srgb, var(--accent) 60%, transparent);
+    transform: translateY(-1px);
+    outline: none;
+}
+
+.pix-payload-copy.empty {
+    color: rgba(148, 163, 209, 0.65);
+    font-style: italic;
+}
+
+.donation-modal .pix-qr {
+    align-items: center;
+}
+
+.donation-modal .pix-qr img {
+    width: 220px;
+    height: 220px;
+}
+
+.donation-modal .pix-qr figcaption {
+    text-align: center;
 }
 
 .legend-description {

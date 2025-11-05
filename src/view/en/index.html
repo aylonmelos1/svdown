@@ -245,12 +245,12 @@
                         <button id="new-download" class="btn secondary clear-action" type="button">Download another
                             video</button>
                     </div>
-                    <div class="donation-blurb">
-                        <p>Like the tool? Help keep it online — make a donation 💜<br>PIX key:
-                            <code>+55 73 99106-0975</code>
-                        </p>
-                        <button type="button" class="btn secondary" data-pix-key="+55 73 99106-0975">Copy PIX
-                            key</button>
+                    <div class="donation-blurb" data-pix-key="+5573991060975" data-pix-display="+55 73 99106-0975"
+                        data-pix-name="SVDown"
+                        data-pix-city="ILHEUS" data-pix-reference="SVDown">
+                        <p>Like the tool? Help keep it online — make a donation 💜</p>
+                        <button type="button" class="btn btn-donate" data-pix-open>Make a donation</button>
+                        <p class="donation-tip">Prefer PayPal? Send your support to <code>aylons1.s1@gmail.com</code>.</p>
                     </div>
                 </div>
             </article>
@@ -277,12 +277,12 @@
                             another
                             video</button>
                     </div>
-                    <div class="donation-blurb">
-                        <p>Like the tool? Help keep it online — make a donation 💜<br>PIX key:
-                            <code>+55 73 99106-0975</code>
-                        </p>
-                        <button type="button" class="btn secondary" data-pix-key="+55 73 99106-0975">Copy PIX
-                            key</button>
+                    <div class="donation-blurb" data-pix-key="+5573991060975" data-pix-display="+55 73 99106-0975"
+                        data-pix-name="SVDown"
+                        data-pix-city="ILHEUS" data-pix-reference="SVDown">
+                        <p>Like the tool? Help keep it online — make a donation 💜</p>
+                        <button type="button" class="btn btn-donate" data-pix-open>Make a donation</button>
+                        <p class="donation-tip">Prefer PayPal? Send your support to <code>aylons1.s1@gmail.com</code>.</p>
                     </div>
                 </div>
             </article>
@@ -395,6 +395,48 @@
                 infrastructure and development.</p>
         </footer>
     </main>
+    <div id="pix-donation-modal" class="donation-modal hidden" data-pix-modal>
+        <div class="donation-modal__overlay" data-pix-dismiss></div>
+        <div class="donation-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="pix-modal-title">
+            <button type="button" class="donation-modal__close" data-pix-dismiss aria-label="Close modal">
+                <span aria-hidden="true">×</span>
+            </button>
+            <div class="donation-modal__content">
+                <h2 id="pix-modal-title">Support via PIX</h2>
+                <p>Pick the amount you wish to contribute and we will generate the QR code and PIX copy-and-paste code for
+                    you.</p>
+                <form class="pix-form" novalidate>
+                    <label class="pix-label" for="pix-amount">Donation amount</label>
+                    <div class="pix-amount-input">
+                        <span class="pix-currency">R$</span>
+                        <input id="pix-amount" name="pix-amount" type="text" inputmode="decimal" autocomplete="off"
+                            placeholder="10.00" data-pix-amount aria-describedby="pix-amount-help" />
+                    </div>
+                    <p id="pix-amount-help" class="pix-help">Enter the amount in Brazilian reais (use dot or comma for
+                        cents).</p>
+                </form>
+                <div class="pix-quick-values" role="group" aria-label="Suggested amounts">
+                    <button type="button" data-pix-quick="5">R$ 5</button>
+                    <button type="button" data-pix-quick="10">R$ 10</button>
+                    <button type="button" data-pix-quick="20">R$ 20</button>
+                    <button type="button" data-pix-quick="50">R$ 50</button>
+                </div>
+                <div class="pix-feedback" data-pix-amount-feedback aria-live="polite"></div>
+                <div class="pix-payload-block">
+                    <label class="pix-label" for="pix-payload">PIX code (copy and paste)</label>
+                    <div class="pix-payload-copy-wrapper">
+                        <div id="pix-payload" class="pix-payload-copy" role="button" tabindex="0"
+                            data-pix-display-payload aria-describedby="pix-payload-hint"></div>
+                        <span id="pix-payload-hint" class="caption-bubble" data-pix-payload-bubble>Tap to copy</span>
+                    </div>
+                </div>
+                <figure class="pix-qr" data-pix-qr hidden>
+                    <img width="220" height="220" loading="lazy" alt="QR code for PIX donation" data-pix-qr-image>
+                    <figcaption>Scan with your banking app to donate instantly.</figcaption>
+                </figure>
+            </div>
+        </div>
+    </div>
     <script src="/script.js" type="module"></script>
     <!-- A tag do ending body do AdsTerra (Social Bar) trava o carregamento da página -->
 </body>
