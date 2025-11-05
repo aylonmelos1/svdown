@@ -21,7 +21,10 @@ const genericVideoElement = document.getElementById('generic-video-player');
 const creatorName = document.getElementById('creator-name');
 const genericTitle = document.getElementById('generic-title');
 const videoCaption = document.getElementById('video-caption');
-const genericDescription = document.getElementById('generic-description');
+const captionBubble = document.getElementById('caption-hint');
+const genericCaptionWrapper = document.getElementById('generic-caption-wrapper');
+const genericCaption = document.getElementById('generic-caption');
+const genericCaptionBubble = document.getElementById('generic-caption-hint');
 const likeCount = document.getElementById('like-count');
 const commentCount = document.getElementById('comment-count');
 const downloadLink = document.getElementById('download-link');
@@ -31,13 +34,12 @@ const shareLink = document.getElementById('share-link');
 const loader = document.getElementById('loading-indicator');
 const loaderText = document.getElementById('loading-text');
 const resolveButton = document.getElementById('resolve-button');
-const captionBubble = document.getElementById('caption-hint');
 const toast = document.getElementById('toast');
 const copyPixButtons = document.querySelectorAll('[data-pix-key]');
 const newDownloadButton = document.getElementById('new-download');
 const genericNewDownload = document.getElementById('generic-new-download');
 let toastTimer;
-let captionBubbleTimer;
+const captionBubbleTimers = new WeakMap();
 
 const state = {
     media: {
@@ -77,6 +79,14 @@ if (!resolverSection || !input || !resolveButton || !resultSection || !videoElem
         if (event.key === 'Enter' || event.key === ' ') {
             event.preventDefault();
             copyCaptionToClipboard();
+        }
+    });
+
+    genericCaption?.addEventListener('click', () => copyCaptionToClipboard(genericCaption, genericCaptionBubble));
+    genericCaption?.addEventListener('keydown', event => {
+        if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            copyCaptionToClipboard(genericCaption, genericCaptionBubble);
         }
     });
 
@@ -225,11 +235,7 @@ if (!resolverSection || !input || !resolveButton || !resultSection || !videoElem
         downloadLink.href = '#';
         downloadButtonCtrl?.reset();
 
-        if (captionBubble) {
-            captionBubble.classList.remove('hidden');
-            captionBubble.classList.remove('show');
-            captionBubble.textContent = 'Clique para copiar';
-        }
+        resetCaptionBubble(captionBubble);
     }
 
     function renderGenericResult(data) {
@@ -257,15 +263,32 @@ if (!resolverSection || !input || !resolveButton || !resultSection || !videoElem
             }
         }
 
-        if (genericTitle) {
-            genericTitle.textContent = data?.title || 'Mídia encontrada';
+        const service = (data?.service || state.media.service || '').toString().toLowerCase();
+        const titleText = (data?.title || '').trim();
+        let descriptionText = (data?.description || '').trim();
+        let headingText = '';
+
+        if (service === 'youtube') {
+            headingText = titleText || 'Mídia encontrada';
+        } else {
+            if (!descriptionText && titleText) {
+                descriptionText = titleText;
+            }
         }
 
-        if (genericDescription) {
-            const descriptionText = data?.description || '';
-            genericDescription.textContent = descriptionText;
-            genericDescription.classList.toggle('hidden', !descriptionText);
+        if (genericTitle) {
+            genericTitle.textContent = headingText;
+            genericTitle.classList.toggle('hidden', !headingText);
         }
+
+        if (genericCaption) {
+            genericCaption.textContent = descriptionText;
+        }
+        if (genericCaptionWrapper) {
+            const hasDescription = Boolean(descriptionText);
+            genericCaptionWrapper.classList.toggle('hidden', !hasDescription);
+        }
+        resetCaptionBubble(genericCaptionBubble);
 
         if (genericDownloadVideo) {
             const hasVideo = Boolean(videoSelection?.url);
@@ -404,9 +427,17 @@ if (!resolverSection || !input || !resolveButton || !resultSection || !videoElem
         updateUrlWithQuery('');
         showFeedback('Pronto para baixar outro vídeo!');
         showToast('Pronto para baixar outro vídeo!');
-        if (captionBubble) {
-            captionBubble.classList.remove('show');
-            captionBubble.textContent = 'Clique para copiar';
+        resetCaptionBubble(captionBubble);
+        resetCaptionBubble(genericCaptionBubble);
+        if (genericCaptionWrapper) {
+            genericCaptionWrapper.classList.add('hidden');
+        }
+        if (genericCaption) {
+            genericCaption.textContent = '';
+        }
+        if (genericTitle) {
+            genericTitle.textContent = '';
+            genericTitle.classList.add('hidden');
         }
     }
 
@@ -455,40 +486,45 @@ if (!resolverSection || !input || !resolveButton || !resultSection || !videoElem
         genericAudioButtonCtrl?.setDisabled(stateValue || !hasAudio);
     }
 
-    async function copyCaptionToClipboard() {
-        const text = videoCaption.textContent?.trim();
+    async function copyCaptionToClipboard(targetCaption = videoCaption, bubbleElement = captionBubble) {
+        const text = targetCaption?.textContent?.trim();
         if (!text) {
             showFeedback('Nenhuma legenda disponível para copiar.', true);
             showToast('Nenhuma legenda disponível para copiar.', true);
             return;
         }
 
+        const context = targetCaption === videoCaption ? 'shopee' : 'generic';
         const pushCopiedEvent = async () => {
-            const linkHash = await safeHash(state.media.video?.url || '');
+            const linkHash = await safeHash(state.media.video?.url || state.media.audio?.url || '');
+            const payload = {};
             if (linkHash) {
-                dl('caption_copied', { link_hash: linkHash });
-            } else {
-                dl('caption_copied', {});
+                payload.link_hash = linkHash;
             }
+            if (context !== 'shopee') {
+                payload.context = context;
+            }
+            dl('caption_copied', payload);
         };
 
         if (navigator.clipboard?.writeText) {
-            navigator.clipboard
-                .writeText(text)
-                .then(async () => {
-                    showFeedback('Legenda copiada para a área de transferência!');
-                    showCaptionBubble();
-                    showToast('Legenda copiada!');
-                    await pushCopiedEvent();
-                })
-                .catch(() => fallbackCopy(text));
+            try {
+                await navigator.clipboard.writeText(text);
+                showFeedback('Legenda copiada para a área de transferência!');
+                showCaptionBubble(bubbleElement);
+                showToast('Legenda copiada!');
+                await pushCopiedEvent();
+            } catch (_) {
+                fallbackCopy(text, bubbleElement);
+                await pushCopiedEvent();
+            }
         } else {
-            fallbackCopy(text);
+            fallbackCopy(text, bubbleElement);
             await pushCopiedEvent();
         }
     }
 
-    function fallbackCopy(text) {
+    function fallbackCopy(text, bubbleElement = captionBubble) {
         try {
             const textarea = document.createElement('textarea');
             textarea.value = text;
@@ -500,7 +536,7 @@ if (!resolverSection || !input || !resolveButton || !resultSection || !videoElem
             document.execCommand('copy');
             document.body.removeChild(textarea);
             showFeedback('Legenda copiada para a área de transferência!');
-            showCaptionBubble();
+            showCaptionBubble(bubbleElement);
             showToast('Legenda copiada!');
         } catch (error) {
             console.error(error);
@@ -567,16 +603,31 @@ if (!resolverSection || !input || !resolveButton || !resultSection || !videoElem
         handleResolve(linkFromQuery);
     }
 
-    function showCaptionBubble() {
-        if (!captionBubble) return;
-        captionBubble.textContent = 'Copiado!';
-        captionBubble.classList.add('show');
-        clearTimeout(captionBubbleTimer);
-        captionBubbleTimer = setTimeout(() => {
-            if (!captionBubble) return;
-            captionBubble.classList.remove('show');
-            captionBubble.textContent = 'Clique para copiar';
+    function resetCaptionBubble(bubbleElement = captionBubble) {
+        if (!bubbleElement) return;
+        const existingTimer = captionBubbleTimers.get(bubbleElement);
+        if (existingTimer) {
+            clearTimeout(existingTimer);
+            captionBubbleTimers.delete(bubbleElement);
+        }
+        bubbleElement.classList.remove('show');
+        bubbleElement.textContent = 'Clique para copiar';
+    }
+
+    function showCaptionBubble(bubbleElement = captionBubble) {
+        if (!bubbleElement) return;
+        bubbleElement.textContent = 'Copiado!';
+        bubbleElement.classList.add('show');
+        const existingTimer = captionBubbleTimers.get(bubbleElement);
+        if (existingTimer) {
+            clearTimeout(existingTimer);
+        }
+        const timer = setTimeout(() => {
+            bubbleElement.classList.remove('show');
+            bubbleElement.textContent = 'Clique para copiar';
+            captionBubbleTimers.delete(bubbleElement);
         }, 1400);
+        captionBubbleTimers.set(bubbleElement, timer);
     }
 
     function showToast(message, isError = false) {

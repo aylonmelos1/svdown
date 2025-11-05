@@ -237,7 +237,12 @@
                 <video id="generic-video-player" controls playsinline></video>
                 <div class="video-meta">
                     <h2 id="generic-title"></h2>
-                    <p id="generic-description" class="video-description"></p>
+                    <div id="generic-caption-wrapper" class="caption-wrapper hidden">
+                        <p class="legend-description">Legenda do vídeo:</p>
+                        <p id="generic-caption" class="video-caption" role="button" tabindex="0"
+                            title="Clique para copiar a legenda"></p>
+                        <span id="generic-caption-hint" class="caption-bubble show">Clique para copiar</span>
+                    </div>
                     <div class="actions">
                         <a id="generic-download-video" class="btn" href="#">
                             <span class="btn-spinner hidden" aria-hidden="true"></span>
