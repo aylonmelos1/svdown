@@ -3,10 +3,9 @@ import cookieParser from 'cookie-parser';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import log from './log';
-import { resolveLinkResponse } from './controller/linkResolver';
-import { downloadVideoHandler } from './controller/download';
 import { ensureApiCookie } from './middleware/cookieInitializer';
-import { apiKeyGuard } from './middleware/apiKey';
+import { createViewRouter } from './routes/viewRoutes';
+import { createApiRouter } from './routes/apiRoutes';
 
 const app = e();
 
@@ -25,38 +24,8 @@ app.use((req, res, next) => {
 });
 
 app.use(e.static(viewPath));
-
-app.get('/', (_req, res) => {
-  log.info('Rendering view /');
-  res.sendFile(path.join(viewPath, 'index.html'));
-});
-
-app.get('/en', (_req, res) => {
-  log.info('Rendering view /en');
-  res.sendFile(path.join(viewPath, 'en', 'index.html'));
-});
-
-app.get('/en/how-to', (_req, res) => {
-  log.info('Rendering view /en/how-to');
-  res.sendFile(path.join(viewPath, 'en', 'how-to.html'));
-});
-
-app.get('/como-usar', (_req, res) => {
-  log.info('Rendering view /como-usar');
-  res.sendFile(path.join(viewPath, 'como-usar.html'));
-});
-
-app.get('/sitemap.xml', (_req, res) => {
-  res.sendFile(path.join(viewPath, 'sitemap.xml'));
-});
-
-app.post('/api/resolve', apiKeyGuard, resolveLinkResponse);
-app.get('/api/download', apiKeyGuard, downloadVideoHandler);
-
-// Catch-all route to redirect to the home page
-app.get('/*splat', (_req, res) => {
-  res.redirect('/');
-});
+app.use('/api', createApiRouter());
+app.use('/', createViewRouter(viewPath));
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
