@@ -56,6 +56,49 @@ async function downloadWithFallback(urls: string[], filePath: string): Promise<s
     throw lastError ?? new Error('Falha ao baixar arquivo');
 }
 
+async function logOriginalMetadata(inputPath: string): Promise<void> {
+    if (!ffmpegPath) {
+        log.warn('ffmpeg binary not found; skipping metadata logging.');
+        return;
+    }
+
+    const ffmpeg = spawn(ffmpegPath, [
+        '-v', 'error',
+        '-i', inputPath,
+        '-f', 'ffmetadata',
+        '-'
+    ]);
+
+    return new Promise<void>((resolve) => {
+        let stdoutBuffer = '';
+        let stderrBuffer = '';
+
+        ffmpeg.stdout.on('data', (data) => {
+            stdoutBuffer += data.toString();
+        });
+
+        ffmpeg.stderr.on('data', (data) => {
+            stderrBuffer += data.toString();
+        });
+
+        ffmpeg.on('close', (code) => {
+            if (code === 0) {
+                const report = buildMetadataReport(stdoutBuffer);
+                log.info(`\n\n=== Original Metadata (will be removed) ===\n${report}\n\n`);
+            } else {
+                const stderrText = stderrBuffer.trim();
+                log.warn(`\n\n=== Original Metadata (read failure) ===\nNão foi possível ler os metadados (exit code ${code}).${stderrText ? `\nDetalhes: ${stderrText}` : ''}\n\n`);
+            }
+            resolve();
+        });
+
+        ffmpeg.on('error', (err) => {
+            log.warn('\n\n=== Original Metadata (read failure) ===\nFalha ao iniciar o ffmpeg para inspecionar os metadados.\n\n', err);
+            resolve();
+        });
+    });
+}
+
 // Helper function to run ffmpeg
 async function cleanupMetadata(inputPath: string, outputPath: string): Promise<void> {
     if (!ffmpegPath) {
@@ -165,14 +208,17 @@ export const downloadVideoHandler = async (req: Request, res: Response) => {
         log.info(`Starting raw download from: ${url}`);
         const usedUrl = await downloadWithFallback(candidates, tempInputPath);
         log.info(`Download complete from ${usedUrl}. Starting ffmpeg processing.`);
+        await logOriginalMetadata(tempInputPath);
 
         try {
             if (mediaType === 'audio') {
                 await convertToMp3(tempInputPath, tempOutputPath);
                 await sendFile(res, tempOutputPath, downloadFileName, 'audio/mpeg');
+                log.info(`\n\n=== Download Summary ===\nArquivo: ${downloadFileName}\nEntrega: audio/mp3\nURL solicitada: ${url}\nURL resolvida: ${usedUrl}\nMetadados: removidos\n\n`);
             } else {
                 await cleanupMetadata(tempInputPath, tempOutputPath);
                 await sendFile(res, tempOutputPath, downloadFileName, 'video/mp4');
+                log.info(`\n\n=== Download Summary ===\nArquivo: ${downloadFileName}\nEntrega: video/mp4\nURL solicitada: ${url}\nURL resolvida: ${usedUrl}\nMetadados: removidos\n\n`);
             }
         } catch (error) {
             log.error('Failed to process media, sending original file.', error);
@@ -180,6 +226,7 @@ export const downloadVideoHandler = async (req: Request, res: Response) => {
 
             const contentType = mediaType === 'audio' ? 'application/octet-stream' : 'video/mp4';
             await sendFile(res, tempInputPath, downloadFileName, contentType);
+            log.warn(`\n\n=== Download Summary ===\nArquivo: ${downloadFileName}\nEntrega: ${mediaType === 'audio' ? 'audio original' : 'video original'}\nURL solicitada: ${url}\nURL resolvida: ${usedUrl}\nMetadados: preservados (falha no processamento)\n\n`);
         }
 
     } catch (error) {
@@ -216,4 +263,53 @@ function isValidHttpUrl(value: string) {
     } catch {
         return false;
     }
+}
+
+function buildMetadataReport(rawMetadata: string): string {
+    const lines = rawMetadata.split(/\r?\n/);
+    const sections = new Map<string, Array<{ key: string; value: string }>>();
+    let currentSection = 'Global';
+
+    for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed.startsWith(';')) {
+            continue;
+        }
+
+        if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+            currentSection = trimmed.slice(1, -1) || 'Section';
+            continue;
+        }
+
+        const separatorIndex = trimmed.indexOf('=');
+        if (separatorIndex === -1) {
+            continue;
+        }
+
+        const key = trimmed.slice(0, separatorIndex).trim();
+        const value = trimmed.slice(separatorIndex + 1).trim();
+
+        if (!key) {
+            continue;
+        }
+
+        const entries = sections.get(currentSection) ?? [];
+        entries.push({ key, value });
+        sections.set(currentSection, entries);
+    }
+
+    if (sections.size === 0) {
+        return 'Nenhum metadado encontrado.';
+    }
+
+    const parts: string[] = [];
+    for (const [section, entries] of sections) {
+        parts.push(`${section}:`);
+        for (const { key, value } of entries) {
+            parts.push(`- ${key}: ${value || '(vazio)'}`);
+        }
+        parts.push('');
+    }
+
+    return parts.join('\n').trim();
 }
