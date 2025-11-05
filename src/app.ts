@@ -31,6 +31,10 @@ app.get('/', (_req, res) => {
   res.sendFile(path.join(viewPath, 'index.html'));
 });
 
+app.get('/ads.txt', (_req, res) => {
+  res.status(301).redirect('https://srv.adstxtmanager.com/19390/svdown.tech.com')
+});
+
 app.get('/como-usar', (_req, res) => {
   log.info('Rendering view /como-usar');
   res.sendFile(path.join(viewPath, 'como-usar.html'));
