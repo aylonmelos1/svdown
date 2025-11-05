@@ -289,13 +289,27 @@
             </details>
         </section>
 
+        <section id="apoie-guia" class="seo-copy support" aria-labelledby="apoie-guia-title">
+            <h2 id="apoie-guia-title">Apoie o SVDown</h2>
+            <p>Manter o SVDown atualizado com novas plataformas e hospedagem rápida tem custo. As doações da
+                comunidade garantem que o serviço continue gratuito e sem anúncios intrusivos.</p>
+            <p>Depois de baixar um vídeo, use o botão <strong>Fazer uma doação</strong> para gerar o QR Code ou faça a
+                transferência diretamente com a chave PIX <code>+55 73 99106-0975</code>.</p>
+            <p>Se preferir PayPal, envie para <code>aylons1.s1@gmail.com</code>. Toda contribuição ajuda a manter o
+                projeto vivo e a priorizar novas integrações.</p>
+            <div class="donation-blurb donation-blurb--button-only" data-pix-key="+5573991060975"
+                data-pix-display="+55 73 99106-0975" data-pix-name="SVDown" data-pix-city="ILHEUS"
+                data-pix-reference="SVDown">
+                <button type="button" class="btn btn-donate" data-pix-open>Fazer uma doação</button>
+            </div>
+        </section>
+
         <section id="recursos" class="seo-copy support" aria-labelledby="recursos-title">
             <h2 id="recursos-title">Suporte, comunidade e próximos passos</h2>
-            <p>Entre em contato pelo <a href="https://instagram.com/aylons1" target="_blank" rel="noopener">Instagram
-                    @aylons1</a> ou envie um e-mail para <a href="mailto:oi@svdown.tech">oi@svdown.tech</a> caso
+            <p>Entre em contato pelo Instagram <a href="https://instagram.com/aylons1" target="_blank" rel="noopener">@aylons1</a> ou envie um e-mail para <a href="mailto:oi@svdown.tech">oi@svdown.tech</a> caso
                 encontre algum bug.</p>
-            <p>Quer contribuir? Compartilhe o SVDown com outros sellers, publique tutoriais em vídeo e considere fazer
-                uma doação via PIX usando a chave <code>+55 73 99106-0975</code>.</p>
+            <p>Quer contribuir? Compartilhe o SVDown com outros sellers, publique tutoriais em vídeo e envie feedback
+                com ideias de integrações ou melhorias.</p>
             <p>Pronto para baixar? <a href="/">Volte para a página inicial</a> e comece a importar vídeos da Shopee
                 Video agora mesmo.</p>
         </section>
@@ -311,6 +325,49 @@
             <p class="footer-made">Feito com ♥ por entusiastas de tecnologia.</p>
         </footer>
     </main>
+    <div id="pix-donation-modal" class="donation-modal hidden" data-pix-modal>
+        <div class="donation-modal__overlay" data-pix-dismiss></div>
+        <div class="donation-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="pix-modal-title">
+            <button type="button" class="donation-modal__close" data-pix-dismiss aria-label="Fechar modal">
+                <span aria-hidden="true">×</span>
+            </button>
+            <div class="donation-modal__content">
+                <h2 id="pix-modal-title">Doe via PIX</h2>
+                <p>Escolha o valor que deseja doar, gere o QR Code e o código copia e cola automaticamente.</p>
+                <form class="pix-form" novalidate>
+                    <label class="pix-label" for="pix-amount">Valor da doação</label>
+                    <div class="pix-amount-input">
+                        <span class="pix-currency">R$</span>
+                        <input id="pix-amount" name="pix-amount" type="text" inputmode="decimal" autocomplete="off"
+                            placeholder="10,00" data-pix-amount aria-describedby="pix-amount-help" />
+                    </div>
+                    <p id="pix-amount-help" class="pix-help">Informe o valor em reais (use vírgula ou ponto para os
+                        centavos).</p>
+                </form>
+                <div class="pix-quick-values" role="group" aria-label="Sugestões de valor">
+                    <button type="button" data-pix-quick="5">R$ 5</button>
+                    <button type="button" data-pix-quick="10">R$ 10</button>
+                    <button type="button" data-pix-quick="20">R$ 20</button>
+                    <button type="button" data-pix-quick="50">R$ 50</button>
+                </div>
+                <div class="pix-feedback" data-pix-amount-feedback aria-live="polite"></div>
+                <div class="pix-payload-block">
+                    <label class="pix-label" for="pix-payload">Código PIX (copia e cola)</label>
+                    <div class="pix-payload-copy-wrapper">
+                        <div id="pix-payload" class="pix-payload-copy empty" role="button" tabindex="0"
+                            data-pix-display-payload aria-describedby="pix-payload-hint"></div>
+                        <span id="pix-payload-hint" class="caption-bubble" data-pix-payload-bubble>Toque para copiar</span>
+                    </div>
+                </div>
+                <figure class="pix-qr" data-pix-qr hidden>
+                    <img width="220" height="220" loading="lazy" alt="QR Code para doação via PIX" data-pix-qr-image>
+                    <figcaption>Escaneie com o app do seu banco para doar rapidamente.</figcaption>
+                </figure>
+            </div>
+        </div>
+    </div>
+    <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
+    <script src="/donation.js" type="module" defer></script>
 </body>
 
 </html>

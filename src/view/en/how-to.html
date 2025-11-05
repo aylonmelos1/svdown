@@ -205,7 +205,8 @@
                 <img src="/icon.svg" alt="SVDown brand" class="hero-logo" width="48" height="48" />
                 <div class="brand-title"><span class="brand-sv">SV</span><span class="brand-down">Down</span></div>
             </div>
-            <h1 class="title">How to Download Shopee Video, TikTok, Pinterest and YouTube clips in seconds without the hassle</h1>
+            <h1 class="title">How to Download Shopee Video, TikTok, Pinterest and YouTube clips in seconds without the
+                hassle</h1>
         </header>
 
         <nav class="breadcrumbs" aria-label="Breadcrumb">
@@ -297,14 +298,28 @@
             </details>
         </section>
 
+        <section id="support-svdown" class="seo-copy support" aria-labelledby="support-svdown-title">
+            <h2 id="support-svdown-title">Support SVDown</h2>
+            <p>SVDown remains free because the community helps cover infrastructure, media processing and ongoing
+                development. If it saves you time, consider making a contribution.</p>
+            <p>Use the <strong>Make a donation</strong> button after each download to generate the PIX QR code or send a
+                transfer manually with the key <code>+55 73 99106-0975</code>.</p>
+            <p>Prefer PayPal? Send your support to <code>aylons1.s1@gmail.com</code>. Every donation keeps downloads
+                fast, reliable and watermark-free.</p>
+            <div class="donation-blurb donation-blurb--button-only" data-pix-key="+5573991060975"
+                data-pix-display="+55 73 99106-0975" data-pix-name="SVDown" data-pix-city="ILHEUS"
+                data-pix-reference="SVDown">
+                <button type="button" class="btn btn-donate" data-pix-open>Make a donation</button>
+            </div>
+        </section>
+
         <section id="support" class="seo-copy support" aria-labelledby="support-title">
             <h2 id="support-title">Support, community and next steps</h2>
-            <p>Found a bug? Reach out on <a href="https://instagram.com/aylons1" target="_blank"
-                    rel="noopener">Instagram @aylons1</a> or email <a href="mailto:oi@svdown.tech">oi@svdown.tech</a>.
+            <p>Found a bug? Reach out on Instagram <a href="https://instagram.com/aylons1" target="_blank"
+                    rel="noopener">@aylons1</a> or email <a href="mailto:oi@svdown.tech">oi@svdown.tech</a>.
             </p>
-            <p>Want to contribute? Share SVDown with other sellers, publish video tutorials and consider donating via
-                PIX
-                using the key <code>+55 73 99106-0975</code>.</p>
+            <p>Want to contribute? Share SVDown with other sellers, publish walkthroughs and send feedback with
+                integration ideas or workflow improvements.</p>
             <p>Ready to download? <a href="/en/">Go back to the homepage</a> and start importing Shopee Video clips
                 right
                 now.</p>
@@ -321,6 +336,51 @@
             <p class="footer-made">Made with ♥ by tech enthusiasts.</p>
         </footer>
     </main>
+    <div id="pix-donation-modal" class="donation-modal hidden" data-pix-modal>
+        <div class="donation-modal__overlay" data-pix-dismiss></div>
+        <div class="donation-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="pix-modal-title">
+            <button type="button" class="donation-modal__close" data-pix-dismiss aria-label="Close modal">
+                <span aria-hidden="true">×</span>
+            </button>
+            <div class="donation-modal__content">
+                <h2 id="pix-modal-title">Support via PIX</h2>
+                <p>Pick the amount you wish to contribute and we will generate the QR code and PIX copy-and-paste code for
+                    you.</p>
+                <p class="donation-tip">Prefer PayPal? Send your support to <code>aylons1.s1@gmail.com</code>.</p>
+                <form class="pix-form" novalidate>
+                    <label class="pix-label" for="pix-amount">Donation amount</label>
+                    <div class="pix-amount-input">
+                        <span class="pix-currency">R$</span>
+                        <input id="pix-amount" name="pix-amount" type="text" inputmode="decimal" autocomplete="off"
+                            placeholder="10.00" data-pix-amount aria-describedby="pix-amount-help" />
+                    </div>
+                    <p id="pix-amount-help" class="pix-help">Enter the amount in Brazilian reais (use dot or comma for
+                        cents).</p>
+                </form>
+                <div class="pix-quick-values" role="group" aria-label="Suggested amounts">
+                    <button type="button" data-pix-quick="5">R$ 5</button>
+                    <button type="button" data-pix-quick="10">R$ 10</button>
+                    <button type="button" data-pix-quick="20">R$ 20</button>
+                    <button type="button" data-pix-quick="50">R$ 50</button>
+                </div>
+                <div class="pix-feedback" data-pix-amount-feedback aria-live="polite"></div>
+                <div class="pix-payload-block">
+                    <label class="pix-label" for="pix-payload">PIX code (copy and paste)</label>
+                    <div class="pix-payload-copy-wrapper">
+                        <div id="pix-payload" class="pix-payload-copy empty" role="button" tabindex="0"
+                            data-pix-display-payload aria-describedby="pix-payload-hint"></div>
+                        <span id="pix-payload-hint" class="caption-bubble" data-pix-payload-bubble>Tap to copy</span>
+                    </div>
+                </div>
+                <figure class="pix-qr" data-pix-qr hidden>
+                    <img width="220" height="220" loading="lazy" alt="QR code for PIX donation" data-pix-qr-image>
+                    <figcaption>Scan with your banking app to donate instantly.</figcaption>
+                </figure>
+            </div>
+        </div>
+    </div>
+    <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
+    <script src="/donation.js" type="module" defer></script>
 </body>
 
 </html>
