@@ -16,7 +16,7 @@ export function createViewRouter(viewPath: string): Router {
     router.get('/como-usar', sendView('como-usar.html', '/como-usar'));
     router.get('/sitemap.xml', sendView('sitemap.xml', '/sitemap.xml'));
 
-    router.get('*', (_req, res) => {
+    router.get('/*splat', (_req, res) => {
         res.redirect('/');
     });
 
