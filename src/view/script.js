@@ -56,6 +56,11 @@ let donationToastTimer;
 let donationToastHideTimer;
 const captionBubbleTimers = new WeakMap();
 let lastFocusedElement = null;
+const USER_ID_STORAGE_KEY = 'svdown.uid';
+const USER_ID_COOKIE_NAME = 'svdown_uid';
+const DOWNLOAD_COUNT_STORAGE_KEY = 'svdown.downloadCount';
+const DONATION_REMINDER_THRESHOLD = 3;
+const initialDownloadCount = readStoredDownloadCount();
 
 const state = {
     media: {
@@ -69,6 +74,8 @@ const state = {
     },
     linkHash: '',
     resolveStartTime: 0,
+    userId: '',
+    downloadCount: initialDownloadCount,
 };
 
 const donationContext = {
@@ -120,6 +127,8 @@ const translations = {
         pixPayloadPlaceholder: 'Informe um valor para gerar o código PIX.',
         donationToastTitle: 'Curtiu baixar sem marca d’água?',
         donationToastSubtitle: 'Doe e mantenha o SVDown gratuito 💜',
+        donationToastTitleReminder: 'Valeu por confiar no SVDown!',
+        donationToastSubtitleReminder: 'Você já baixou {{count}} vídeos de graça. Considere apoiar o projeto.',
         donationToastAria: 'Abrir modal para fazer uma doação',
         pixAmountInvalid: 'Valor inválido. Use números e até duas casas decimais.',
         pixAmountReady: 'Código atualizado para {{value}}.',
@@ -163,6 +172,8 @@ const translations = {
         pixPayloadPlaceholder: 'Enter an amount to generate the PIX code.',
         donationToastTitle: 'Enjoying the clean downloads?',
         donationToastSubtitle: 'Donate to keep SVDown free 💜',
+        donationToastTitleReminder: 'Thanks for trusting SVDown!',
+        donationToastSubtitleReminder: 'You have downloaded {{count}} videos for free. Chip in to keep us online.',
         donationToastAria: 'Open the donation modal',
         pixAmountInvalid: 'Invalid amount. Use numbers with up to two decimal places.',
         pixAmountReady: 'PIX code updated for {{value}}.',
@@ -179,6 +190,8 @@ const tr = (key) => {
     const table = translations[lang] || translations.pt;
     return table[key] ?? translations.pt[key] ?? key;
 };
+
+ensureUserId();
 
 if (!resolverSection || !input || !resolveButton || !resultSection || !videoElement || !videoCaption || !downloadLink) {
     console.warn('SVDown: elementos essenciais não encontrados, script abortado.');
@@ -505,6 +518,7 @@ if (!resolverSection || !input || !resolveButton || !resultSection || !videoElem
                 showToast(tr('audioConvertFailed'), true);
             }
 
+            const serverDownloadCount = extractDownloadCountHeader(response);
             const blob = await response.blob();
             const objectUrl = URL.createObjectURL(blob);
             const contentDisposition = response.headers.get('Content-Disposition');
@@ -514,7 +528,8 @@ if (!resolverSection || !input || !resolveButton || !resultSection || !videoElem
             const downloadSuccess = tr('downloadComplete');
             showFeedback(downloadSuccess);
             showToast(downloadSuccess);
-            showDonationToast();
+            const updatedCount = recordDownloadCount(serverDownloadCount);
+            showDonationToast(updatedCount);
 
             if (selectionHash) {
                 dl('download_complete', {
@@ -562,6 +577,23 @@ if (!resolverSection || !input || !resolveButton || !resultSection || !videoElem
             params.set('type', 'audio');
         }
         return `/api/download?${params.toString()}`;
+    }
+
+    function extractDownloadCountHeader(response) {
+        if (!response || typeof response.headers?.get !== 'function') {
+            return null;
+        }
+        const rawValue = response.headers.get('X-Download-Count');
+        const parsed = Number.parseInt(rawValue ?? '', 10);
+        return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
+    }
+
+    function recordDownloadCount(serverValue) {
+        const fallbackBase = Number.isFinite(state.downloadCount) ? state.downloadCount : 0;
+        const resolved = typeof serverValue === 'number' ? serverValue : fallbackBase + 1;
+        state.downloadCount = resolved;
+        persistDownloadCount(resolved);
+        return resolved;
     }
 
     function resetForm() {
@@ -770,10 +802,17 @@ if (!resolverSection || !input || !resolveButton || !resultSection || !videoElem
         });
     }
 
-    function updateDonationToastTexts() {
+    function updateDonationToastTexts(options = {}) {
         if (!donationToast) return;
-        const title = tr('donationToastTitle');
-        const subtitle = tr('donationToastSubtitle');
+        const downloadCount = typeof options.downloadCount === 'number' ? options.downloadCount : state.downloadCount;
+        const useReminder = shouldShowDonationReminder(downloadCount);
+        const titleKey = useReminder ? 'donationToastTitleReminder' : 'donationToastTitle';
+        const subtitleKey = useReminder ? 'donationToastSubtitleReminder' : 'donationToastSubtitle';
+        let title = tr(titleKey);
+        let subtitle = tr(subtitleKey);
+        if (useReminder && typeof downloadCount === 'number') {
+            subtitle = subtitle.replace('{{count}}', String(downloadCount));
+        }
         const aria = tr('donationToastAria');
         if (donationToastTitle) {
             donationToastTitle.textContent = title;
@@ -787,9 +826,9 @@ if (!resolverSection || !input || !resolveButton || !resultSection || !videoElem
         }
     }
 
-    function showDonationToast() {
+    function showDonationToast(downloadCount) {
         if (!donationToast || !donationModal) return;
-        updateDonationToastTexts();
+        updateDonationToastTexts({ downloadCount });
         donationToast.classList.remove('hidden');
         requestAnimationFrame(() => donationToast.classList.add('show'));
         window.clearTimeout(donationToastTimer);
@@ -817,6 +856,13 @@ if (!resolverSection || !input || !resolveButton || !resultSection || !videoElem
         }
         const firstBlock = donationBlocks[0] || donationBlocks.item?.(0);
         return firstBlock ? { ...firstBlock.dataset } : {};
+    }
+
+    function shouldShowDonationReminder(downloadCount) {
+        if (typeof downloadCount !== 'number') {
+            return false;
+        }
+        return downloadCount >= DONATION_REMINDER_THRESHOLD;
     }
 
     function initDonationBlock(container) {
@@ -1442,4 +1488,83 @@ function initDownloadButton(button, defaultLabel, loadingLabel) {
         setDisabled,
         reset: () => setLoading(false),
     };
+}
+
+function readStoredDownloadCount() {
+    const rawValue = safeStorageGet(DOWNLOAD_COUNT_STORAGE_KEY);
+    const parsed = Number.parseInt(rawValue ?? '', 10);
+    return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
+}
+
+function persistDownloadCount(value) {
+    safeStorageSet(DOWNLOAD_COUNT_STORAGE_KEY, String(Math.max(0, value)));
+}
+
+function safeStorageGet(key) {
+    try {
+        return window.localStorage?.getItem?.(key) ?? null;
+    } catch (_) {
+        return null;
+    }
+}
+
+function safeStorageSet(key, value) {
+    try {
+        window.localStorage?.setItem?.(key, value);
+    } catch (_) {
+        // ignore storage failures (private mode, etc.)
+    }
+}
+
+function ensureUserId() {
+    let stored = safeStorageGet(USER_ID_STORAGE_KEY);
+    if (!isValidUserId(stored)) {
+        stored = generateClientUuid();
+        safeStorageSet(USER_ID_STORAGE_KEY, stored);
+    }
+    persistUserIdCookie(stored);
+    if (state) {
+        state.userId = stored;
+    }
+    return stored;
+}
+
+function persistUserIdCookie(userId) {
+    if (!userId) return;
+    try {
+        const maxAgeSeconds = 60 * 60 * 24 * 365;
+        const secureFlag = window.location.protocol === 'https:' ? ';Secure' : '';
+        document.cookie = `${USER_ID_COOKIE_NAME}=${encodeURIComponent(userId)};path=/;max-age=${maxAgeSeconds};SameSite=Strict${secureFlag}`;
+    } catch (error) {
+        console.warn('SVDown: failed to persist user cookie', error);
+    }
+}
+
+function generateClientUuid() {
+    if (window.crypto?.randomUUID) {
+        return window.crypto.randomUUID();
+    }
+    const array = new Uint32Array(4);
+    if (window.crypto?.getRandomValues) {
+        window.crypto.getRandomValues(array);
+    } else {
+        for (let i = 0; i < array.length; i += 1) {
+            array[i] = Math.floor(Math.random() * 0xffffffff);
+        }
+    }
+    const template = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx';
+    let index = 0;
+    return template.replace(/[xy]/g, char => {
+        const bucketIndex = index >> 3;
+        const shift = (index % 8) * 4;
+        const bucket = array[bucketIndex] ?? 0;
+        const value = (bucket >> shift) & 0xf;
+        index += 1;
+        const r = char === 'x' ? value : ((value & 0x3) | 0x8);
+        return r.toString(16);
+    });
+}
+
+function isValidUserId(value) {
+    return typeof value === 'string' && /^[a-z0-9-]{16,}$/i.test(value);
 }

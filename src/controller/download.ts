@@ -6,6 +6,9 @@ import { promises as fs } from 'fs';
 import path from 'path';
 import os from 'os';
 import ffmpegPath from 'ffmpeg-static';
+import { incrementDownloadCount } from '../services/sessionStore';
+
+const USER_ID_COOKIE = 'svdown_uid';
 
 const MAX_FILE_SIZE_BYTES = 150 * 1024 * 1024; // 150 MB
 const DOWNLOAD_TIMEOUT_MS = 30_000;
@@ -198,6 +201,8 @@ export const downloadVideoHandler = async (req: Request, res: Response) => {
     const mediaType: 'video' | 'audio' = type === 'audio' ? 'audio' : 'video';
     const extension = mediaType === 'audio' ? '.mp3' : '.mp4';
     const downloadFileName = buildTimestampedFileName(extension);
+    const userId = getUserIdFromRequest(req);
+    const trackDownload = createDownloadTracker(res, userId);
 
     let tempDir: string | undefined;
     try {
@@ -213,10 +218,12 @@ export const downloadVideoHandler = async (req: Request, res: Response) => {
         try {
             if (mediaType === 'audio') {
                 await convertToMp3(tempInputPath, tempOutputPath);
+                trackDownload();
                 await sendFile(res, tempOutputPath, downloadFileName, 'audio/mpeg');
                 log.info(`\n\n=== Download Summary ===\nArquivo: ${downloadFileName}\nEntrega: audio/mp3\nURL solicitada: ${url}\nURL resolvida: ${usedUrl}\nMetadados: removidos\n\n`);
             } else {
                 await cleanupMetadata(tempInputPath, tempOutputPath);
+                trackDownload();
                 await sendFile(res, tempOutputPath, downloadFileName, 'video/mp4');
                 log.info(`\n\n=== Download Summary ===\nArquivo: ${downloadFileName}\nEntrega: video/mp4\nURL solicitada: ${url}\nURL resolvida: ${usedUrl}\nMetadados: removidos\n\n`);
             }
@@ -225,6 +232,7 @@ export const downloadVideoHandler = async (req: Request, res: Response) => {
             res.setHeader(mediaType === 'video' ? 'X-Metadata-Cleaned' : 'X-Audio-Transcoded', 'false');
 
             const contentType = mediaType === 'audio' ? 'application/octet-stream' : 'video/mp4';
+            trackDownload();
             await sendFile(res, tempInputPath, downloadFileName, contentType);
             log.warn(`\n\n=== Download Summary ===\nArquivo: ${downloadFileName}\nEntrega: ${mediaType === 'audio' ? 'audio original' : 'video original'}\nURL solicitada: ${url}\nURL resolvida: ${usedUrl}\nMetadados: preservados (falha no processamento)\n\n`);
         }
@@ -312,4 +320,32 @@ function buildMetadataReport(rawMetadata: string): string {
     }
 
     return parts.join('\n').trim();
+}
+
+function getUserIdFromRequest(req: Request): string | null {
+    const candidate = req.cookies?.[USER_ID_COOKIE];
+    if (typeof candidate !== 'string') {
+        return null;
+    }
+    return isValidUserId(candidate) ? candidate : null;
+}
+
+function isValidUserId(value: string): boolean {
+    return /^[a-zA-Z0-9_-]{16,}$/.test(value);
+}
+
+function createDownloadTracker(res: Response, userId: string | null) {
+    let recorded = false;
+    return () => {
+        if (recorded || !userId || res.headersSent) {
+            return;
+        }
+        recorded = true;
+        try {
+            const totalDownloads = incrementDownloadCount(userId);
+            res.setHeader('X-Download-Count', String(totalDownloads));
+        } catch (error) {
+            log.error(`Failed to update download count for ${userId}`, error);
+        }
+    };
 }
