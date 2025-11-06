@@ -1184,6 +1184,21 @@ body.modal-open {
     z-index: 1100;
 }
 
+.donation-toast__counter {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.2rem;
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    padding: 0.25rem 0.7rem;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.18);
+    color: #fff;
+    margin-top: 0.35rem;
+    width: max-content;
+}
+
 .donation-toast.show {
     opacity: 1;
     transform: translateX(0);

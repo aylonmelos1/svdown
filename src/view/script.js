@@ -38,6 +38,7 @@ const toast = document.getElementById('toast');
 const donationToast = document.getElementById('donation-toast');
 const donationToastTitle = donationToast?.querySelector('[data-donation-toast-title]') || null;
 const donationToastSubtitle = donationToast?.querySelector('[data-donation-toast-subtitle]') || null;
+const donationToastCount = donationToast?.querySelector('[data-donation-toast-count]') || null;
 const donationBlocks = document.querySelectorAll('.donation-blurb[data-pix-key]');
 const newDownloadButton = document.getElementById('new-download');
 const genericNewDownload = document.getElementById('generic-new-download');
@@ -128,7 +129,9 @@ const translations = {
         donationToastTitle: 'Curtiu baixar sem marca d’água?',
         donationToastSubtitle: 'Doe e mantenha o SVDown gratuito 💜',
         donationToastTitleReminder: 'Valeu por confiar no SVDown!',
-        donationToastSubtitleReminder: 'Você já baixou {{count}} vídeos de graça. Considere apoiar o projeto.',
+        donationToastSubtitleReminder: 'Você já baixou {{count}} vídeos de graça. Doe e ajude a manter o SVDown gratuito 💜.',
+        donationToastCountSingular: 'Parabéns! Primeiro download gratuito!',
+        donationToastCountPlural: '{{count}} downloads gratuitos',
         donationToastAria: 'Abrir modal para fazer uma doação',
         pixAmountInvalid: 'Valor inválido. Use números e até duas casas decimais.',
         pixAmountReady: 'Código atualizado para {{value}}.',
@@ -174,6 +177,8 @@ const translations = {
         donationToastSubtitle: 'Donate to keep SVDown free 💜',
         donationToastTitleReminder: 'Thanks for trusting SVDown!',
         donationToastSubtitleReminder: 'You have downloaded {{count}} videos for free. Chip in to keep us online.',
+        donationToastCountSingular: '{{count}} free download',
+        donationToastCountPlural: '{{count}} free downloads',
         donationToastAria: 'Open the donation modal',
         pixAmountInvalid: 'Invalid amount. Use numbers with up to two decimal places.',
         pixAmountReady: 'PIX code updated for {{value}}.',
@@ -596,6 +601,15 @@ if (!resolverSection || !input || !resolveButton || !resultSection || !videoElem
         return resolved;
     }
 
+    function formatDownloadCountLabel(count) {
+        if (!Number.isFinite(count) || count <= 0) {
+            return '';
+        }
+        const templateKey = count === 1 ? 'donationToastCountSingular' : 'donationToastCountPlural';
+        const template = tr(templateKey);
+        return template.replace('{{count}}', String(count));
+    }
+
     function resetForm() {
         input.value = '';
         clearVideoElement(videoElement);
@@ -824,6 +838,7 @@ if (!resolverSection || !input || !resolveButton || !resultSection || !videoElem
             donationToast.setAttribute('aria-label', aria);
             donationToast.setAttribute('title', aria);
         }
+        updateDonationCountBadge(downloadCount);
     }
 
     function showDonationToast(downloadCount) {
@@ -863,6 +878,18 @@ if (!resolverSection || !input || !resolveButton || !resultSection || !videoElem
             return false;
         }
         return downloadCount >= DONATION_REMINDER_THRESHOLD;
+    }
+
+    function updateDonationCountBadge(downloadCount) {
+        if (!donationToastCount) return;
+        if (!Number.isFinite(downloadCount) || downloadCount <= 0) {
+            donationToastCount.classList.add('hidden');
+            donationToastCount.textContent = '';
+            return;
+        }
+        const label = formatDownloadCountLabel(downloadCount);
+        donationToastCount.textContent = label;
+        donationToastCount.classList.remove('hidden');
     }
 
     function initDonationBlock(container) {
