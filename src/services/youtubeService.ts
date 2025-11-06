@@ -1,7 +1,7 @@
 import { spawn } from 'child_process';
 import type { ResolveResult } from './types';
 import { fileNameFromUrl, sanitizeBaseName } from './utils';
-import { findYtDlpBinary } from '../lib/ytDlp';
+import { findYtDlpBinary, buildYtDlpCookieArgs } from '../lib/ytDlp';
 
 type YtDlpFormat = {
     format_id?: string;
@@ -116,7 +116,7 @@ class YoutubeService {
             '--skip-download',
             '--dump-single-json',
             '--no-warnings',
-            '--no-call-home',
+            ...(await buildYtDlpCookieArgs()),
             url,
         ];
 
