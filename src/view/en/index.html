@@ -218,6 +218,30 @@
             <span id="loading-text">Processing…</span>
         </div>
 
+        <section id="user-stats" class="user-stats" aria-live="polite">
+            <header class="user-stats__header">
+                <p class="user-stats__title">What the community has downloaded</p>
+                <p class="user-stats__status" data-stat-status>Updating metrics…</p>
+            </header>
+            <div class="user-stats__grid">
+                <article class="user-stats__card" data-stat-card="downloads">
+                    <p class="user-stats__label">Videos downloaded</p>
+                    <p class="user-stats__value" data-stat-value="downloads">—</p>
+                    <p class="user-stats__hint" data-stat-hint="downloads">Loading…</p>
+                </article>
+                <article class="user-stats__card" data-stat-card="platform">
+                    <p class="user-stats__label">Top platform</p>
+                    <p class="user-stats__value" data-stat-value="platform">—</p>
+                    <p class="user-stats__hint" data-stat-hint="platform">Waiting for your downloads</p>
+                </article>
+                <article class="user-stats__card" data-stat-card="duration">
+                    <p class="user-stats__label">Total video time</p>
+                    <p class="user-stats__value" data-stat-value="duration">—</p>
+                    <p class="user-stats__hint" data-stat-hint="duration">Loading…</p>
+                </article>
+            </div>
+        </section>
+
         <section id="resolver-form" class="resolver-form">
             <label for="link-input">Video link:</label>
             <div class="input-group">

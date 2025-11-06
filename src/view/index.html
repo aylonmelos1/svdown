@@ -220,6 +220,30 @@
             <span id="loading-text">Processando…</span>
         </div>
 
+        <section id="user-stats" class="user-stats" aria-live="polite">
+            <header class="user-stats__header">
+                <p class="user-stats__title">O quanto os usuários já baixaram</p>
+                <p class="user-stats__status" data-stat-status>Atualizando métricas…</p>
+            </header>
+            <div class="user-stats__grid">
+                <article class="user-stats__card" data-stat-card="downloads">
+                    <p class="user-stats__label">Vídeos baixados</p>
+                    <p class="user-stats__value" data-stat-value="downloads">—</p>
+                    <p class="user-stats__hint" data-stat-hint="downloads">Carregando…</p>
+                </article>
+                <article class="user-stats__card" data-stat-card="platform">
+                    <p class="user-stats__label">Plataforma preferida</p>
+                    <p class="user-stats__value" data-stat-value="platform">—</p>
+                    <p class="user-stats__hint" data-stat-hint="platform">Aguardando seus downloads</p>
+                </article>
+                <article class="user-stats__card" data-stat-card="duration">
+                    <p class="user-stats__label">Tempo de vídeo baixado</p>
+                    <p class="user-stats__value" data-stat-value="duration">—</p>
+                    <p class="user-stats__hint" data-stat-hint="duration">Carregando…</p>
+                </article>
+            </div>
+        </section>
+
         <section id="resolver-form" class="resolver-form">
             <label for="link-input">Link do vídeo:</label>
             <div class="input-group">

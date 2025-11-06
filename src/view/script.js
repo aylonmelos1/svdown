@@ -52,6 +52,24 @@ const donationModalQrWrapper = donationModal?.querySelector('[data-pix-qr]') || 
 const donationModalQrImage = donationModalQrWrapper?.querySelector('[data-pix-qr-image]') || null;
 const donationModalDismissTriggers = donationModal ? donationModal.querySelectorAll('[data-pix-dismiss]') : [];
 const donationModalQuickButtons = donationModal ? donationModal.querySelectorAll('[data-pix-quick]') : [];
+const statsSection = document.getElementById('user-stats');
+const statsStatus = statsSection?.querySelector('[data-stat-status]') || null;
+const statsValues = {
+    downloads: statsSection?.querySelector('[data-stat-value="downloads"]') || null,
+    platform: statsSection?.querySelector('[data-stat-value="platform"]') || null,
+    duration: statsSection?.querySelector('[data-stat-value="duration"]') || null,
+};
+const statsHints = {
+    downloads: statsSection?.querySelector('[data-stat-hint="downloads"]') || null,
+    platform: statsSection?.querySelector('[data-stat-hint="platform"]') || null,
+    duration: statsSection?.querySelector('[data-stat-hint="duration"]') || null,
+};
+const statsLabels = {
+    downloads: statsSection?.querySelector('[data-stat-card="downloads"] .user-stats__label') || null,
+    platform: statsSection?.querySelector('[data-stat-card="platform"] .user-stats__label') || null,
+    duration: statsSection?.querySelector('[data-stat-card="duration"] .user-stats__label') || null,
+};
+const statsTitle = statsSection?.querySelector('.user-stats__title') || null;
 let toastTimer;
 let donationToastTimer;
 let donationToastHideTimer;
@@ -72,11 +90,15 @@ const state = {
         pageProps: null,
         title: null,
         description: null,
+        extras: null,
+        videoDurationSeconds: null,
+        audioDurationSeconds: null,
     },
     linkHash: '',
     resolveStartTime: 0,
     userId: '',
     downloadCount: initialDownloadCount,
+    stats: null,
 };
 
 const donationContext = {
@@ -138,7 +160,26 @@ const translations = {
         pixAmountReadyNoValue: 'Código gerado sem valor definido. Você pode informar no app do banco.',
         processing: 'Processando...',
         unknownCreator: 'Criador desconhecido',
-        noDescription: 'Sem descrição definida.'
+        noDescription: 'Sem descrição definida.',
+        userStatsTitleOwn: 'Seu impacto gratuito',
+        userStatsTitleCommunity: 'O quanto os usuários já baixaram',
+        userStatsLoading: 'Atualizando métricas…',
+        userStatsError: 'Não foi possível carregar agora.',
+        userStatsStatusOwn: 'Dados deste navegador',
+        userStatsStatusCommunity: 'Dados recentes da comunidade',
+        userStatsDownloadsLabel: 'Vídeos baixados',
+        userStatsDownloadsHintOwn: 'Seus downloads gratuitos',
+        userStatsDownloadsHintGlobal: 'Total da comunidade',
+        userStatsPlatformLabel: 'Plataforma preferida',
+        userStatsPlatformHintOwn: 'Baseado em {{count}} downloads seus',
+        userStatsPlatformHintGlobal: 'Baseado em {{count}} downloads da comunidade',
+        userStatsPlatformHintWaiting: 'Aguardando seus downloads',
+        userStatsPlatformHintGlobalEmpty: 'Ainda sem dados suficientes da comunidade',
+        userStatsPlatformEmpty: 'Sem dados ainda',
+        userStatsDurationLabel: 'Tempo de vídeo baixado',
+        userStatsDurationHintOwn: 'Seu tempo acumulado',
+        userStatsDurationHintGlobal: 'Tempo acumulado da comunidade',
+        userStatsDurationEmpty: '0 s'
     },
     en: {
         downloadVideo: 'Download video',
@@ -185,7 +226,26 @@ const translations = {
         pixAmountReadyNoValue: 'PIX code generated without a predefined amount. You can set it in your banking app.',
         processing: 'Processing...',
         unknownCreator: 'Unknown creator',
-        noDescription: 'No caption available.'
+        noDescription: 'No caption available.',
+        userStatsTitleOwn: 'Your free impact',
+        userStatsTitleCommunity: 'What the community has downloaded',
+        userStatsLoading: 'Updating metrics…',
+        userStatsError: 'Unable to load now.',
+        userStatsStatusOwn: 'This browser only',
+        userStatsStatusCommunity: 'Community-wide data',
+        userStatsDownloadsLabel: 'Videos downloaded',
+        userStatsDownloadsHintOwn: 'Your free downloads',
+        userStatsDownloadsHintGlobal: 'Community total',
+        userStatsPlatformLabel: 'Top platform',
+        userStatsPlatformHintOwn: 'Based on {{count}} of your downloads',
+        userStatsPlatformHintGlobal: 'Based on {{count}} community downloads',
+        userStatsPlatformHintWaiting: 'Start downloading to unlock this',
+        userStatsPlatformHintGlobalEmpty: 'Not enough community data yet',
+        userStatsPlatformEmpty: 'No data yet',
+        userStatsDurationLabel: 'Total video time',
+        userStatsDurationHintOwn: 'Your total download time',
+        userStatsDurationHintGlobal: 'Community total time',
+        userStatsDurationEmpty: '0 s'
     }
 };
 
@@ -196,7 +256,42 @@ const tr = (key) => {
     return table[key] ?? translations.pt[key] ?? key;
 };
 
+const formatMessage = (key, replacements = {}) => {
+    let template = tr(key) || '';
+    Object.entries(replacements).forEach(([token, value]) => {
+        const pattern = new RegExp(`{{\\s*${token}\\s*}}`, 'g');
+        template = template.replace(pattern, String(value));
+    });
+    return template;
+};
+
+const numberFormatter = new Intl.NumberFormat(lang === 'en' ? 'en-US' : 'pt-BR');
+
+const serviceDisplayNames = {
+    shopee: {
+        pt: 'Shopee Vídeo',
+        en: 'Shopee Video',
+    },
+    tiktok: {
+        pt: 'TikTok',
+        en: 'TikTok',
+    },
+    pinterest: {
+        pt: 'Pinterest',
+        en: 'Pinterest',
+    },
+    youtube: {
+        pt: 'YouTube',
+        en: 'YouTube',
+    },
+    meta: {
+        pt: 'Instagram / Facebook',
+        en: 'Instagram / Facebook',
+    },
+};
+
 ensureUserId();
+initUserStatsDashboard();
 
 if (!resolverSection || !input || !resolveButton || !resultSection || !videoElement || !videoCaption || !downloadLink) {
     console.warn('SVDown: elementos essenciais não encontrados, script abortado.');
@@ -335,8 +430,14 @@ if (!resolverSection || !input || !resolveButton || !resultSection || !videoElem
             pageProps: data?.pageProps || null,
             title: data?.title || null,
             description: data?.description || null,
+            extras: data?.extras || null,
+            videoDurationSeconds: null,
+            audioDurationSeconds: null,
         };
-
+        const inferredVideoDuration = extractMediaDurationSeconds(data, 'video');
+        const inferredAudioDuration = extractMediaDurationSeconds(data, 'audio');
+        state.media.videoDurationSeconds = inferredVideoDuration ?? inferredAudioDuration ?? null;
+        state.media.audioDurationSeconds = inferredAudioDuration ?? inferredVideoDuration ?? null;
         if (data?.service === 'shopee') {
             renderShopeeResult(data);
         } else {
@@ -535,6 +636,7 @@ if (!resolverSection || !input || !resolveButton || !resultSection || !videoElem
             showToast(downloadSuccess);
             const updatedCount = recordDownloadCount(serverDownloadCount);
             showDonationToast(updatedCount);
+            updateLocalStatsAfterDownload(mediaType);
 
             if (selectionHash) {
                 dl('download_complete', {
@@ -581,6 +683,13 @@ if (!resolverSection || !input || !resolveButton || !resultSection || !videoElem
         if (mediaType === 'audio') {
             params.set('type', 'audio');
         }
+        if (state.media.service) {
+            params.set('service', state.media.service);
+        }
+        const durationSeconds = getDurationSecondsForMedia(mediaType);
+        if (Number.isFinite(durationSeconds) && durationSeconds > 0) {
+            params.set('duration', String(Math.round(durationSeconds)));
+        }
         return `/api/download?${params.toString()}`;
     }
 
@@ -598,7 +707,99 @@ if (!resolverSection || !input || !resolveButton || !resultSection || !videoElem
         const resolved = typeof serverValue === 'number' ? serverValue : fallbackBase + 1;
         state.downloadCount = resolved;
         persistDownloadCount(resolved);
+        if (state?.stats?.user) {
+            state.stats.user.downloads = Math.max(Number(state.stats.user.downloads) || 0, resolved);
+            updateStatsGrid();
+        }
         return resolved;
+    }
+
+    function getDurationSecondsForMedia(mediaType) {
+        if (mediaType === 'audio') {
+            return state.media.audioDurationSeconds ?? state.media.videoDurationSeconds ?? null;
+        }
+        return state.media.videoDurationSeconds ?? state.media.audioDurationSeconds ?? null;
+    }
+
+    function extractMediaDurationSeconds(data, mediaType) {
+        if (!data) return null;
+        const extras = data?.extras || {};
+        const pageProps = data?.pageProps || {};
+        const candidates = [
+            extras?.duration,
+            extras?.durationMs,
+            extras?.[`duration${mediaType === 'audio' ? 'Audio' : 'Video'}`],
+            pageProps?.mediaInfo?.video?.duration,
+            pageProps?.mediaInfo?.video?.durationMs,
+            pageProps?.mediaInfo?.video?.length,
+            pageProps?.mediaInfo?.video?.lengthSeconds,
+            pageProps?.mediaInfo?.duration,
+            pageProps?.duration,
+            data?.duration,
+        ];
+        for (const value of candidates) {
+            const parsed = parseDurationToSeconds(value);
+            if (parsed) {
+                return parsed;
+            }
+        }
+        return null;
+    }
+
+    function parseDurationToSeconds(value) {
+        if (typeof value === 'number' && Number.isFinite(value)) {
+            if (value <= 0) return null;
+            if (value <= 48 * 60 * 60) {
+                return value;
+            }
+            if (value <= 48 * 60 * 60 * 1000) {
+                return value / 1000;
+            }
+        }
+        if (typeof value === 'string') {
+            const trimmed = value.trim();
+            if (!trimmed) return null;
+            const normalized = trimmed.replace(',', '.');
+            const numeric = Number.parseFloat(normalized);
+            if (Number.isFinite(numeric) && numeric > 0) {
+                if (numeric <= 48 * 60 * 60) {
+                    return numeric;
+                }
+                if (numeric <= 48 * 60 * 60 * 1000) {
+                    return numeric / 1000;
+                }
+            }
+            if (/^\d{1,2}:\d{2}(:\d{2})?$/.test(trimmed)) {
+                return parseColonDuration(trimmed);
+            }
+            if (/^PT/i.test(trimmed)) {
+                return parseIsoDuration(trimmed);
+            }
+        }
+        return null;
+    }
+
+    function parseColonDuration(value) {
+        const parts = value.split(':').map(Number);
+        if (parts.some(part => Number.isNaN(part))) return null;
+        if (parts.length === 2) {
+            const [minutes, seconds] = parts;
+            return (minutes * 60) + seconds;
+        }
+        if (parts.length === 3) {
+            const [hours, minutes, seconds] = parts;
+            return (hours * 3600) + (minutes * 60) + seconds;
+        }
+        return null;
+    }
+
+    function parseIsoDuration(value) {
+        const match = value.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+(?:\.\d+)?)S)?/i);
+        if (!match) return null;
+        const hours = Number.parseFloat(match[1] || '0');
+        const minutes = Number.parseFloat(match[2] || '0');
+        const seconds = Number.parseFloat(match[3] || '0');
+        return (hours * 3600) + (minutes * 60) + seconds;
     }
 
     function formatDownloadCountLabel(count) {
@@ -650,6 +851,9 @@ if (!resolverSection || !input || !resolveButton || !resultSection || !videoElem
             pageProps: null,
             title: null,
             description: null,
+            extras: null,
+            videoDurationSeconds: null,
+            audioDurationSeconds: null,
         };
     }
 
@@ -1594,4 +1798,270 @@ function generateClientUuid() {
 
 function isValidUserId(value) {
     return typeof value === 'string' && /^[a-z0-9-]{16,}$/i.test(value);
+}
+
+function initUserStatsDashboard() {
+    if (!statsSection) {
+        return;
+    }
+    hydrateStatsCopy();
+    setStatsStatus(tr('userStatsLoading'));
+    updateStatsGrid();
+    fetchUserStats().catch((error) => {
+        console.warn('SVDown: failed to load stats', error);
+        setStatsStatus(tr('userStatsError'));
+    });
+}
+
+function hydrateStatsCopy() {
+    if (!statsSection) return;
+    setStatsTitle(tr('userStatsTitleCommunity'));
+    setStatLabel('downloads', tr('userStatsDownloadsLabel'));
+    setStatLabel('platform', tr('userStatsPlatformLabel'));
+    setStatLabel('duration', tr('userStatsDurationLabel'));
+    setStatHint('downloads', tr('userStatsLoading'));
+    setStatHint('platform', tr('userStatsLoading'));
+    setStatHint('duration', tr('userStatsLoading'));
+    setStatValue('downloads', '—');
+    setStatValue('platform', '—');
+    setStatValue('duration', tr('userStatsDurationEmpty'));
+}
+
+async function fetchUserStats() {
+    if (!statsSection) return;
+    const userId = state.userId || ensureUserId();
+    const query = userId ? `?uid=${encodeURIComponent(userId)}` : '';
+    const response = await fetch(`/api/session/stats${query}`, {
+        headers: {
+            'Accept': 'application/json',
+        },
+    });
+    if (!response.ok) {
+        throw new Error(`Stats request failed: ${response.status}`);
+    }
+    const payload = await response.json();
+    if (!payload?.stats) {
+        throw new Error('Missing stats payload');
+    }
+    state.stats = normalizeStatsPayload(payload.stats);
+    updateStatsGrid();
+}
+
+function normalizeStatsPayload(rawStats) {
+    const normalizeServices = (services) => {
+        if (!Array.isArray(services)) {
+            return [];
+        }
+        const mapped = services
+            .filter(entry => entry && typeof entry.service === 'string' && entry.service.trim().length > 0)
+            .map(entry => ({
+                service: entry.service,
+                downloads: sanitizeNonNegativeNumber(entry.downloads),
+                totalDurationSeconds: sanitizeDuration(entry.totalDurationSeconds),
+            }));
+        return sortServiceSummaries(mapped);
+    };
+
+    return {
+        user: {
+            downloads: sanitizeNonNegativeNumber(rawStats?.user?.downloads),
+            totalDurationSeconds: sanitizeDuration(rawStats?.user?.totalDurationSeconds),
+            services: normalizeServices(rawStats?.user?.services),
+        },
+        global: {
+            downloads: sanitizeNonNegativeNumber(rawStats?.global?.downloads),
+            totalDurationSeconds: sanitizeDuration(rawStats?.global?.totalDurationSeconds),
+            services: normalizeServices(rawStats?.global?.services),
+        },
+    };
+}
+
+function updateStatsGrid() {
+    if (!statsSection) return;
+    if (!state?.stats) {
+        setStatsTitle(tr('userStatsTitleCommunity'));
+        setStatsStatus(tr('userStatsLoading'));
+        setStatValue('downloads', '—');
+        setStatValue('platform', '—');
+        setStatValue('duration', tr('userStatsDurationEmpty'));
+        setStatHint('downloads', tr('userStatsLoading'));
+        setStatHint('platform', tr('userStatsLoading'));
+        setStatHint('duration', tr('userStatsLoading'));
+        return;
+    }
+    const { user, global } = state.stats;
+    const userDownloads = sanitizeNonNegativeNumber(user?.downloads);
+    const globalDownloads = sanitizeNonNegativeNumber(global?.downloads);
+    const hasUserDownloads = userDownloads > 0;
+    const viewingUserStats = hasUserDownloads
+        || sanitizeDuration(user?.totalDurationSeconds) > 0
+        || (Array.isArray(user?.services) && user.services.length > 0 && sanitizeNonNegativeNumber(user.services[0]?.downloads) > 0);
+    const downloadsValue = viewingUserStats ? userDownloads : globalDownloads;
+    setStatsTitle(tr(viewingUserStats ? 'userStatsTitleOwn' : 'userStatsTitleCommunity'));
+    setStatsStatus(tr(viewingUserStats ? 'userStatsStatusOwn' : 'userStatsStatusCommunity'));
+    setStatValue('downloads', formatNumberValue(downloadsValue));
+    setStatHint('downloads', tr(viewingUserStats ? 'userStatsDownloadsHintOwn' : 'userStatsDownloadsHintGlobal'));
+
+    const userTop = Array.isArray(user?.services) && user.services.length > 0 ? user.services[0] : null;
+    const globalTop = Array.isArray(global?.services) && global.services.length > 0 ? global.services[0] : null;
+    const topSource = viewingUserStats && userTop ? 'user' : (globalTop ? 'global' : null);
+    const topEntry = topSource === 'user' ? userTop : globalTop;
+    if (topEntry && topEntry.service) {
+        setStatValue('platform', resolveServiceName(topEntry.service));
+        const hintKey = topSource === 'user' ? 'userStatsPlatformHintOwn' : 'userStatsPlatformHintGlobal';
+        setStatHint('platform', formatMessage(hintKey, { count: formatNumberValue(topEntry.downloads) }));
+    } else {
+        setStatValue('platform', tr('userStatsPlatformEmpty'));
+        const emptyHintKey = viewingUserStats ? 'userStatsPlatformHintWaiting' : 'userStatsPlatformHintGlobalEmpty';
+        setStatHint('platform', tr(emptyHintKey));
+    }
+
+    const userDuration = sanitizeDuration(user?.totalDurationSeconds);
+    const globalDuration = sanitizeDuration(global?.totalDurationSeconds);
+    const durationValue = viewingUserStats ? userDuration : globalDuration;
+    setStatValue('duration', formatDurationSummary(durationValue));
+    setStatHint('duration', tr(viewingUserStats ? 'userStatsDurationHintOwn' : 'userStatsDurationHintGlobal'));
+}
+
+function setStatValue(key, value) {
+    const target = statsValues?.[key];
+    if (target) {
+        target.textContent = value;
+    }
+}
+
+function setStatHint(key, value) {
+    const target = statsHints?.[key];
+    if (target) {
+        target.textContent = value;
+    }
+}
+
+function setStatLabel(key, value) {
+    const target = statsLabels?.[key];
+    if (target) {
+        target.textContent = value;
+    }
+}
+
+function setStatsStatus(value) {
+    if (statsStatus) {
+        statsStatus.textContent = value || '';
+    }
+}
+
+function setStatsTitle(value) {
+    if (statsTitle) {
+        statsTitle.textContent = value || '';
+    }
+}
+
+function formatNumberValue(value) {
+    const safeValue = sanitizeNonNegativeNumber(value);
+    return numberFormatter.format(safeValue);
+}
+
+function formatDurationSummary(value) {
+    const safeValue = sanitizeDuration(value);
+    if (!Number.isFinite(safeValue) || safeValue <= 0) {
+        return tr('userStatsDurationEmpty');
+    }
+    const totalSeconds = Math.round(safeValue);
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+    const minuteLabel = lang === 'en' ? 'm' : 'min';
+    const parts = [];
+    if (hours > 0) {
+        parts.push(`${hours}h`);
+    }
+    if (minutes > 0) {
+        parts.push(`${minutes}${minuteLabel}`);
+    }
+    if (hours === 0 && minutes === 0) {
+        parts.push(`${seconds}s`);
+    }
+    if (parts.length === 0) {
+        parts.push('0s');
+    }
+    return parts.join(' ');
+}
+
+function resolveServiceName(service) {
+    if (!service) {
+        return tr('userStatsPlatformEmpty');
+    }
+    const normalized = service.toLowerCase();
+    const label = serviceDisplayNames?.[normalized];
+    if (label) {
+        if (typeof label === 'string') {
+            return label;
+        }
+        return label[lang === 'en' ? 'en' : 'pt'] || label.pt || label.en || service;
+    }
+    return normalized.charAt(0).toUpperCase() + normalized.slice(1);
+}
+
+function sortServiceSummaries(entries) {
+    const list = Array.isArray(entries) ? entries.slice() : [];
+    return list.sort((a, b) => {
+        const downloadsA = sanitizeNonNegativeNumber(a?.downloads);
+        const downloadsB = sanitizeNonNegativeNumber(b?.downloads);
+        if (downloadsB !== downloadsA) {
+            return downloadsB - downloadsA;
+        }
+        const durationA = sanitizeDuration(a?.totalDurationSeconds);
+        const durationB = sanitizeDuration(b?.totalDurationSeconds);
+        if (durationB !== durationA) {
+            return durationB - durationA;
+        }
+        const serviceA = (a?.service || '').toString();
+        const serviceB = (b?.service || '').toString();
+        return serviceA.localeCompare(serviceB);
+    });
+}
+
+function sanitizeNonNegativeNumber(value) {
+    const num = typeof value === 'number' ? value : Number.parseFloat(value);
+    if (!Number.isFinite(num) || num < 0) {
+        return 0;
+    }
+    return Math.floor(num);
+}
+
+function sanitizeDuration(value) {
+    const num = typeof value === 'number' ? value : Number.parseFloat(value);
+    if (!Number.isFinite(num) || num < 0) {
+        return 0;
+    }
+    return num;
+}
+
+function updateLocalStatsAfterDownload(mediaType) {
+    if (!state?.stats?.user) {
+        return;
+    }
+    const durationSeconds = getDurationSecondsForMedia(mediaType);
+    if (Number.isFinite(durationSeconds) && durationSeconds > 0) {
+        state.stats.user.totalDurationSeconds = sanitizeDuration(state.stats.user.totalDurationSeconds) + durationSeconds;
+    }
+    const service = (state.media?.service || '').toLowerCase();
+    if (service) {
+        state.stats.user.services = Array.isArray(state.stats.user.services) ? state.stats.user.services : [];
+        const existing = state.stats.user.services.find(entry => entry.service === service);
+        if (existing) {
+            existing.downloads = sanitizeNonNegativeNumber(existing.downloads) + 1;
+            if (Number.isFinite(durationSeconds) && durationSeconds > 0) {
+                existing.totalDurationSeconds = sanitizeDuration(existing.totalDurationSeconds) + durationSeconds;
+            }
+        } else {
+            state.stats.user.services.push({
+                service,
+                downloads: 1,
+                totalDurationSeconds: Number.isFinite(durationSeconds) && durationSeconds > 0 ? durationSeconds : 0,
+            });
+        }
+        state.stats.user.services = sortServiceSummaries(state.stats.user.services);
+    }
+    updateStatsGrid();
 }

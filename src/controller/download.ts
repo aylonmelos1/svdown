@@ -6,7 +6,8 @@ import { promises as fs } from 'fs';
 import path from 'path';
 import os from 'os';
 import ffmpegPath from 'ffmpeg-static';
-import { incrementDownloadCount } from '../services/sessionStore';
+import { recordDownloadEvent } from '../services/sessionStore';
+import type { SupportedService } from '../services/types';
 
 const USER_ID_COOKIE = 'svdown_uid';
 
@@ -59,10 +60,10 @@ async function downloadWithFallback(urls: string[], filePath: string): Promise<s
     throw lastError ?? new Error('Falha ao baixar arquivo');
 }
 
-async function logOriginalMetadata(inputPath: string): Promise<void> {
+async function logOriginalMetadata(inputPath: string): Promise<number | null> {
     if (!ffmpegPath) {
         log.warn('ffmpeg binary not found; skipping metadata logging.');
-        return;
+        return null;
     }
 
     const ffmpeg = spawn(ffmpegPath, [
@@ -72,7 +73,7 @@ async function logOriginalMetadata(inputPath: string): Promise<void> {
         '-'
     ]);
 
-    return new Promise<void>((resolve) => {
+    return new Promise<number | null>((resolve) => {
         let stdoutBuffer = '';
         let stderrBuffer = '';
 
@@ -85,19 +86,21 @@ async function logOriginalMetadata(inputPath: string): Promise<void> {
         });
 
         ffmpeg.on('close', (code) => {
+            let parsedDuration: number | null = null;
             if (code === 0) {
                 const report = buildMetadataReport(stdoutBuffer);
+                parsedDuration = extractDurationFromMetadataDump(stdoutBuffer);
                 log.info(`\n\n=== Original Metadata (will be removed) ===\n${report}\n\n`);
             } else {
                 const stderrText = stderrBuffer.trim();
                 log.warn(`\n\n=== Original Metadata (read failure) ===\nNão foi possível ler os metadados (exit code ${code}).${stderrText ? `\nDetalhes: ${stderrText}` : ''}\n\n`);
             }
-            resolve();
+            resolve(parsedDuration);
         });
 
         ffmpeg.on('error', (err) => {
             log.warn('\n\n=== Original Metadata (read failure) ===\nFalha ao iniciar o ffmpeg para inspecionar os metadados.\n\n', err);
-            resolve();
+            resolve(null);
         });
     });
 }
@@ -182,11 +185,17 @@ async function sendFile(res: Response, filePath: string, fileName: string, conte
 }
 
 export const downloadVideoHandler = async (req: Request, res: Response) => {
-    const { url, fallback, type } = req.query as {
+    const { url, fallback, type, service, duration, durationSeconds, durationMs } = req.query as {
         url?: string;
         fallback?: string | string[];
         type?: string;
+        service?: string;
+        duration?: string;
+        durationSeconds?: string;
+        durationMs?: string;
     };
+    const serviceParam = parseServiceParam(service);
+    const durationParam = parseDurationParam(duration ?? durationSeconds ?? durationMs);
 
     if (!url) {
         return res.status(400).json({ error: 'URL parameter is required' });
@@ -202,7 +211,12 @@ export const downloadVideoHandler = async (req: Request, res: Response) => {
     const extension = mediaType === 'audio' ? '.mp3' : '.mp4';
     const downloadFileName = buildTimestampedFileName(extension);
     const userId = getUserIdFromRequest(req);
-    const trackDownload = createDownloadTracker(res, userId);
+    const trackDownload = createDownloadTracker(res, {
+        userId,
+        service: serviceParam,
+        mediaType,
+        durationSeconds: durationParam,
+    });
 
     let tempDir: string | undefined;
     try {
@@ -213,17 +227,17 @@ export const downloadVideoHandler = async (req: Request, res: Response) => {
         log.info(`Starting raw download from: ${url}`);
         const usedUrl = await downloadWithFallback(candidates, tempInputPath);
         log.info(`Download complete from ${usedUrl}. Starting ffmpeg processing.`);
-        await logOriginalMetadata(tempInputPath);
+        const probedDurationSeconds = await logOriginalMetadata(tempInputPath);
 
         try {
             if (mediaType === 'audio') {
                 await convertToMp3(tempInputPath, tempOutputPath);
-                trackDownload();
+                trackDownload({ durationSeconds: probedDurationSeconds });
                 await sendFile(res, tempOutputPath, downloadFileName, 'audio/mpeg');
                 log.info(`\n\n=== Download Summary ===\nArquivo: ${downloadFileName}\nEntrega: audio/mp3\nURL solicitada: ${url}\nURL resolvida: ${usedUrl}\nMetadados: removidos\n\n`);
             } else {
                 await cleanupMetadata(tempInputPath, tempOutputPath);
-                trackDownload();
+                trackDownload({ durationSeconds: probedDurationSeconds });
                 await sendFile(res, tempOutputPath, downloadFileName, 'video/mp4');
                 log.info(`\n\n=== Download Summary ===\nArquivo: ${downloadFileName}\nEntrega: video/mp4\nURL solicitada: ${url}\nURL resolvida: ${usedUrl}\nMetadados: removidos\n\n`);
             }
@@ -232,7 +246,7 @@ export const downloadVideoHandler = async (req: Request, res: Response) => {
             res.setHeader(mediaType === 'video' ? 'X-Metadata-Cleaned' : 'X-Audio-Transcoded', 'false');
 
             const contentType = mediaType === 'audio' ? 'application/octet-stream' : 'video/mp4';
-            trackDownload();
+            trackDownload({ durationSeconds: probedDurationSeconds });
             await sendFile(res, tempInputPath, downloadFileName, contentType);
             log.warn(`\n\n=== Download Summary ===\nArquivo: ${downloadFileName}\nEntrega: ${mediaType === 'audio' ? 'audio original' : 'video original'}\nURL solicitada: ${url}\nURL resolvida: ${usedUrl}\nMetadados: preservados (falha no processamento)\n\n`);
         }
@@ -334,18 +348,73 @@ function isValidUserId(value: string): boolean {
     return /^[a-zA-Z0-9_-]{16,}$/.test(value);
 }
 
-function createDownloadTracker(res: Response, userId: string | null) {
+type TrackerOptions = {
+    userId: string | null;
+    service: SupportedService | null;
+    mediaType: 'video' | 'audio';
+    durationSeconds: number | null;
+};
+
+function createDownloadTracker(res: Response, options: TrackerOptions) {
     let recorded = false;
-    return () => {
-        if (recorded || !userId || res.headersSent) {
+    return (override?: Partial<Pick<TrackerOptions, 'durationSeconds'>>) => {
+        if (recorded || !options.userId || res.headersSent) {
             return;
         }
         recorded = true;
         try {
-            const totalDownloads = incrementDownloadCount(userId);
+            const totalDownloads = recordDownloadEvent({
+                userId: options.userId,
+                service: options.service,
+                mediaType: options.mediaType,
+                durationSeconds: selectDuration(options.durationSeconds, override?.durationSeconds),
+            });
             res.setHeader('X-Download-Count', String(totalDownloads));
         } catch (error) {
-            log.error(`Failed to update download count for ${userId}`, error);
+            log.error(`Failed to update download count for ${options.userId}`, error);
         }
     };
+}
+
+function selectDuration(base: number | null, override?: number | null) {
+    if (typeof override === 'number' && Number.isFinite(override) && override > 0) {
+        return override;
+    }
+    return base ?? null;
+}
+
+function parseServiceParam(value: unknown): SupportedService | null {
+    if (typeof value !== 'string') {
+        return null;
+    }
+    const normalized = value.toLowerCase() as SupportedService;
+    const allowed: SupportedService[] = ['shopee', 'pinterest', 'tiktok', 'youtube', 'meta'];
+    return allowed.includes(normalized) ? normalized : null;
+}
+
+function parseDurationParam(value: unknown): number | null {
+    if (typeof value === 'string') {
+        const parsed = Number.parseFloat(value);
+        if (Number.isFinite(parsed) && parsed > 0) {
+            return parsed;
+        }
+    } else if (typeof value === 'number' && Number.isFinite(value) && value > 0) {
+        return value;
+    }
+    return null;
+}
+
+function extractDurationFromMetadataDump(dump: string): number | null {
+    if (!dump) {
+        return null;
+    }
+    const match = dump.match(/duration\s*=\s*([0-9]+(?:\.[0-9]+)?)/i);
+    if (!match) {
+        return null;
+    }
+    const parsed = Number.parseFloat(match[1]);
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+        return null;
+    }
+    return parsed;
 }
