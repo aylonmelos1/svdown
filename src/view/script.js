@@ -35,6 +35,9 @@ const loader = document.getElementById('loading-indicator');
 const loaderText = document.getElementById('loading-text');
 const resolveButton = document.getElementById('resolve-button');
 const toast = document.getElementById('toast');
+const donationToast = document.getElementById('donation-toast');
+const donationToastTitle = donationToast?.querySelector('[data-donation-toast-title]') || null;
+const donationToastSubtitle = donationToast?.querySelector('[data-donation-toast-subtitle]') || null;
 const donationBlocks = document.querySelectorAll('.donation-blurb[data-pix-key]');
 const newDownloadButton = document.getElementById('new-download');
 const genericNewDownload = document.getElementById('generic-new-download');
@@ -49,6 +52,8 @@ const donationModalQrImage = donationModalQrWrapper?.querySelector('[data-pix-qr
 const donationModalDismissTriggers = donationModal ? donationModal.querySelectorAll('[data-pix-dismiss]') : [];
 const donationModalQuickButtons = donationModal ? donationModal.querySelectorAll('[data-pix-quick]') : [];
 let toastTimer;
+let donationToastTimer;
+let donationToastHideTimer;
 const captionBubbleTimers = new WeakMap();
 let lastFocusedElement = null;
 
@@ -113,6 +118,9 @@ const translations = {
         pixPayloadCopyFailed: 'Não foi possível copiar o código PIX.',
         pixPayloadUnavailable: 'Não foi possível preparar o código PIX no momento.',
         pixPayloadPlaceholder: 'Informe um valor para gerar o código PIX.',
+        donationToastTitle: 'Curtiu baixar sem marca d’água?',
+        donationToastSubtitle: 'Doe e mantenha o SVDown gratuito 💜',
+        donationToastAria: 'Abrir modal para fazer uma doação',
         pixAmountInvalid: 'Valor inválido. Use números e até duas casas decimais.',
         pixAmountReady: 'Código atualizado para {{value}}.',
         pixAmountReadyNoValue: 'Código gerado sem valor definido. Você pode informar no app do banco.',
@@ -153,6 +161,9 @@ const translations = {
         pixPayloadCopyFailed: 'Could not copy the PIX payload.',
         pixPayloadUnavailable: 'We could not prepare the PIX payload right now.',
         pixPayloadPlaceholder: 'Enter an amount to generate the PIX code.',
+        donationToastTitle: 'Enjoying the clean downloads?',
+        donationToastSubtitle: 'Donate to keep SVDown free 💜',
+        donationToastAria: 'Open the donation modal',
         pixAmountInvalid: 'Invalid amount. Use numbers with up to two decimal places.',
         pixAmountReady: 'PIX code updated for {{value}}.',
         pixAmountReadyNoValue: 'PIX code generated without a predefined amount. You can set it in your banking app.',
@@ -207,6 +218,7 @@ if (!resolverSection || !input || !resolveButton || !resultSection || !videoElem
     newDownloadButton?.addEventListener('click', resetForm);
     genericNewDownload?.addEventListener('click', resetForm);
     donationBlocks.forEach(block => initDonationBlock(block));
+    initDonationToast();
 
     if (donationModal) {
         donationModalDismissTriggers.forEach(trigger => {
@@ -502,6 +514,7 @@ if (!resolverSection || !input || !resolveButton || !resultSection || !videoElem
             const downloadSuccess = tr('downloadComplete');
             showFeedback(downloadSuccess);
             showToast(downloadSuccess);
+            showDonationToast();
 
             if (selectionHash) {
                 dl('download_complete', {
@@ -748,6 +761,64 @@ if (!resolverSection || !input || !resolveButton || !resultSection || !videoElem
         }
     }
 
+    function initDonationToast() {
+        if (!donationToast || !donationModal) return;
+        updateDonationToastTexts();
+        donationToast.addEventListener('click', () => {
+            openDonationModal(getDefaultDonationDataset());
+            hideDonationToast(true);
+        });
+    }
+
+    function updateDonationToastTexts() {
+        if (!donationToast) return;
+        const title = tr('donationToastTitle');
+        const subtitle = tr('donationToastSubtitle');
+        const aria = tr('donationToastAria');
+        if (donationToastTitle) {
+            donationToastTitle.textContent = title;
+        }
+        if (donationToastSubtitle) {
+            donationToastSubtitle.textContent = subtitle;
+        }
+        if (aria && typeof donationToast.setAttribute === 'function') {
+            donationToast.setAttribute('aria-label', aria);
+            donationToast.setAttribute('title', aria);
+        }
+    }
+
+    function showDonationToast() {
+        if (!donationToast || !donationModal) return;
+        updateDonationToastTexts();
+        donationToast.classList.remove('hidden');
+        requestAnimationFrame(() => donationToast.classList.add('show'));
+        window.clearTimeout(donationToastTimer);
+        window.clearTimeout(donationToastHideTimer);
+        donationToastTimer = window.setTimeout(() => hideDonationToast(), 12000);
+    }
+
+    function hideDonationToast(immediate = false) {
+        if (!donationToast) return;
+        donationToast.classList.remove('show');
+        window.clearTimeout(donationToastTimer);
+        window.clearTimeout(donationToastHideTimer);
+        if (immediate) {
+            donationToast.classList.add('hidden');
+            return;
+        }
+        donationToastHideTimer = window.setTimeout(() => {
+            donationToast.classList.add('hidden');
+        }, 300);
+    }
+
+    function getDefaultDonationDataset() {
+        if (!donationBlocks || donationBlocks.length === 0) {
+            return {};
+        }
+        const firstBlock = donationBlocks[0] || donationBlocks.item?.(0);
+        return firstBlock ? { ...firstBlock.dataset } : {};
+    }
+
     function initDonationBlock(container) {
         if (!container) return;
         const openButton = container.querySelector('[data-pix-open]');
@@ -758,6 +829,7 @@ if (!resolverSection || !input || !resolveButton || !resultSection || !videoElem
 
     function openDonationModal(dataset = {}) {
         if (!donationModal) return;
+        hideDonationToast(true);
         const {
             pixKey = '',
             pixName = 'SVDown',

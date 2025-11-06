@@ -1159,6 +1159,67 @@ body.modal-open {
     color: #0b1120;
     border-color: rgba(248, 113, 113, 0.75);
 }
+
+.donation-toast {
+    position: fixed;
+    right: clamp(16px, 3vw, 48px);
+    bottom: clamp(96px, 14vh, 200px);
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    border: none;
+    border-radius: 18px;
+    padding: 1rem 1.35rem;
+    background: #9a2afc;
+    color: #fdf4ff;
+    box-shadow: 0 24px 45px rgba(52, 7, 88, 0.45);
+    font-family: inherit;
+    cursor: pointer;
+    max-width: 280px;
+    width: max-content;
+    text-align: left;
+    opacity: 0;
+    transform: translateX(calc(100% + 24px));
+    transition: transform 0.35s ease, opacity 0.3s ease;
+    z-index: 1100;
+}
+
+.donation-toast.show {
+    opacity: 1;
+    transform: translateX(0);
+}
+
+.donation-toast:focus-visible {
+    outline: 3px solid rgba(255, 255, 255, 0.45);
+    outline-offset: 2px;
+}
+
+.donation-toast__title {
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    opacity: 0.9;
+}
+
+.donation-toast__subtitle {
+    font-size: 0.98rem;
+    font-weight: 600;
+}
+
+@media (max-width: 640px) {
+    .donation-toast {
+        left: 16px;
+        right: 16px;
+        bottom: 32px;
+        width: auto;
+        max-width: none;
+        transform: translateY(calc(100% + 24px));
+    }
+
+    .donation-toast.show {
+        transform: translateY(0);
+    }
+}
 @media (max-width: 380px) {
     body {
         padding: 1.5rem 0.6rem;
