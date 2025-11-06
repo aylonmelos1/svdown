@@ -1,62 +1,106 @@
-import axios from 'axios';
+import { spawn } from 'child_process';
 import type { ResolveResult } from './types';
 import { fileNameFromUrl, sanitizeBaseName } from './utils';
+import { findYtDlpBinary } from '../lib/ytDlp';
 
-export class YoutubeService {
+type YtDlpFormat = {
+    format_id?: string;
+    format_note?: string;
+    ext?: string;
+    url?: string;
+    vcodec?: string;
+    acodec?: string;
+    height?: number;
+    width?: number;
+    vbr?: number;
+    abr?: number;
+    tbr?: number;
+    fps?: number;
+    filesize?: number;
+    filesize_approx?: number;
+    quality?: number;
+    codec?: string;
+    format?: string;
+    audio_ext?: string;
+    video_ext?: string;
+    mime_type?: string;
+};
+
+type YtDlpThumbnail = {
+    url?: string;
+    width?: number;
+    height?: number;
+};
+
+type YtDlpInfo = {
+    title?: string;
+    description?: string;
+    duration?: number;
+    webpage_url?: string;
+    display_id?: string;
+    id?: string;
+    channel?: string;
+    channel_id?: string;
+    uploader?: string;
+    uploader_id?: string;
+    uploader_url?: string;
+    thumbnails?: YtDlpThumbnail[];
+    thumbnail?: string;
+    formats?: YtDlpFormat[];
+};
+
+class YoutubeService {
     public isApplicable(url: string): boolean {
-        const parsedUrl = new URL(url);
-        return parsedUrl.hostname.includes('youtube.com') || parsedUrl.hostname.includes('youtu.be');
+        try {
+            const parsedUrl = new URL(url);
+            return parsedUrl.hostname.includes('youtube.com') || parsedUrl.hostname.includes('youtu.be');
+        } catch {
+            return false;
+        }
     }
 
     public async resolve(url: string): Promise<ResolveResult> {
+        if (!this.isApplicable(url)) {
+            throw new Error('Link do YouTube inválido ou não suportado');
+        }
+
         try {
-            const res = await axios.get(
-                'https://api.vidfly.ai/api/media/youtube/download',
-                {
-                    params: { url },
-                    headers: {
-                        accept: '*/*',
-                        'content-type': 'application/json',
-                        'x-app-name': 'vidfly-web',
-                        'x-app-version': '1.0.0',
-                        Referer: 'https://vidfly.ai/',
-                    },
-                }
-            );
-
-            const data = res.data?.data;
-            if (!data || !data.items || !data.title) {
-                throw new Error('Invalid or empty response from YouTube downloader API');
-            }
-
-            const formats = Array.isArray(data.items) ? data.items : [];
+            const info = await this.fetchVideoInfo(url);
+            const formats = Array.isArray(info.formats) ? info.formats : [];
             const videoCandidate = this.pickBestVideo(formats);
-            const audioCandidate = this.pickBestAudio(formats);
+            const audioCandidate = this.pickBestAudio(formats, videoCandidate?.url ?? null);
+            const durationSeconds = this.extractDurationSeconds(info);
 
             return {
                 service: 'youtube',
-                title: data.title,
-                thumbnail: data.cover,
-                description: data.description,
+                title: info.title ?? 'YouTube video',
+                description: undefined,
+                thumbnail: this.pickBestThumbnail(info),
+                shareUrl: info.webpage_url ?? url,
                 video: videoCandidate
                     ? {
                         url: videoCandidate.url,
                         fallbackUrls: videoCandidate.fallbacks,
-                        fileName: this.buildFileName(videoCandidate.url, data.title, 'mp4'),
+                        fileName: this.buildFileName(videoCandidate.url, info.title ?? 'video', 'mp4'),
                         qualityLabel: videoCandidate.qualityLabel,
+                        contentType: videoCandidate.contentType,
                     }
                     : undefined,
                 audio: audioCandidate
                     ? {
                         url: audioCandidate.url,
                         fallbackUrls: audioCandidate.fallbacks,
-                        fileName: this.buildFileName(audioCandidate.url, data.title, 'mp3'),
+                        fileName: this.buildFileName(audioCandidate.url, info.title ?? 'audio', 'mp3'),
                         qualityLabel: audioCandidate.qualityLabel,
+                        contentType: audioCandidate.contentType,
                     }
                     : undefined,
                 extras: {
-                    duration: data.duration,
-                    rawFormats: formats,
+                    duration: durationSeconds,
+                    videoId: info.id ?? info.display_id ?? null,
+                    channelId: info.channel_id ?? null,
+                    author: info.uploader ?? info.channel ?? null,
+                    availableFormats: this.summarizeFormats(formats),
                 },
             };
         } catch (err) {
@@ -65,20 +109,67 @@ export class YoutubeService {
         }
     }
 
-    private pickBestVideo(formats: any[]) {
+    private async fetchVideoInfo(url: string): Promise<YtDlpInfo> {
+        const binary = await findYtDlpBinary();
+        const args = [
+            '--no-playlist',
+            '--skip-download',
+            '--dump-single-json',
+            '--no-warnings',
+            '--no-call-home',
+            url,
+        ];
+
+        const ytProcess = spawn(binary, args, { stdio: ['ignore', 'pipe', 'pipe'] });
+        let stdoutBuffer = '';
+        let stderrBuffer = '';
+
+        ytProcess.stdout.on('data', chunk => {
+            stdoutBuffer += chunk.toString();
+        });
+
+        ytProcess.stderr.on('data', chunk => {
+            stderrBuffer += chunk.toString();
+        });
+
+        const exitCode: number = await new Promise((resolve, reject) => {
+            ytProcess.on('error', reject);
+            ytProcess.on('close', resolve);
+        });
+
+        if (exitCode !== 0) {
+            const reason = stderrBuffer.trim() || stdoutBuffer.trim();
+            throw new Error(`yt-dlp info fetch falhou (code ${exitCode})${reason ? `: ${reason}` : ''}`);
+        }
+
+        if (!stdoutBuffer.trim()) {
+            throw new Error('yt-dlp não retornou informações do vídeo.');
+        }
+
+        try {
+            return JSON.parse(stdoutBuffer) as YtDlpInfo;
+        } catch (error) {
+            throw new Error(`Falha ao interpretar a resposta do yt-dlp: ${(error as Error).message}`);
+        }
+    }
+
+    private pickBestVideo(formats: YtDlpFormat[]) {
         const videoFormats = formats
             .filter((format) => {
-                const mime: string = format?.mimeType || format?.mime_type || '';
-                const rawType: unknown = format?.type;
-                const type = typeof rawType === 'string' ? rawType.toLowerCase() : '';
-                const hasAudio = format?.hasAudio ?? format?.has_audio ?? type.includes('audio');
-                const isVideo = mime.includes('video') || type.includes('video');
-                return isVideo && (hasAudio || mime.includes('audio'));
+                const urlAvailable = Boolean(format.url);
+                const hasVideo = format.vcodec && format.vcodec !== 'none';
+                const hasAudio = format.acodec && format.acodec !== 'none';
+                const ext = (format.ext ?? '').toLowerCase();
+                const mime = (format.mime_type ?? '').toLowerCase();
+                const progressive = hasVideo && hasAudio;
+                const isPreferredContainer = mime.includes('mp4') || ext === 'mp4' || ext === 'm4v';
+                return urlAvailable && progressive && isPreferredContainer;
             })
             .map(format => ({
                 url: format.url,
-                qualityLabel: format.qualityLabel || format.label || format.quality,
+                qualityLabel: this.buildQualityLabel(format),
                 score: this.extractQualityScore(format),
+                contentType: this.resolveContentType(format, 'video/mp4'),
             }))
             .filter(item => Boolean(item.url));
 
@@ -88,24 +179,28 @@ export class YoutubeService {
         return {
             url: best.url,
             qualityLabel: best.qualityLabel,
-            fallbacks: rest.map(item => item.url),
+            contentType: best.contentType,
+            fallbacks: rest.map(item => item.url).filter(Boolean),
         };
     }
 
-    private pickBestAudio(formats: any[]) {
+    private pickBestAudio(formats: YtDlpFormat[], ignoreUrl?: string | null) {
         const audioFormats = formats
             .filter((format) => {
-                const mime: string = format?.mimeType || format?.mime_type || '';
-                const rawType: unknown = format?.type;
-                const type = typeof rawType === 'string' ? rawType.toLowerCase() : '';
-                return mime.includes('audio') || type.includes('audio');
+                const urlAvailable = Boolean(format.url);
+                const isAudioOnly = (!format.vcodec || format.vcodec === 'none') && format.acodec && format.acodec !== 'none';
+                const ext = (format.ext ?? '').toLowerCase();
+                const mime = (format.mime_type ?? '').toLowerCase();
+                const preferredContainer = ext === 'm4a' || mime.includes('audio/mp4');
+                return urlAvailable && isAudioOnly && (preferredContainer || ext === 'mp4' || ext === 'webm' || mime.includes('audio/'));
             })
             .map(format => ({
                 url: format.url,
-                qualityLabel: format.qualityLabel || format.label || format.quality || 'audio',
+                qualityLabel: this.buildQualityLabel(format, true),
                 score: this.extractAudioScore(format),
+                contentType: this.resolveContentType(format, 'audio/mp4'),
             }))
-            .filter(item => Boolean(item.url));
+            .filter(item => Boolean(item.url) && item.url !== ignoreUrl);
 
         if (audioFormats.length === 0) return undefined;
         audioFormats.sort((a, b) => b.score - a.score);
@@ -113,27 +208,30 @@ export class YoutubeService {
         return {
             url: best.url,
             qualityLabel: best.qualityLabel,
-            fallbacks: rest.map(item => item.url),
+            contentType: best.contentType,
+            fallbacks: rest.map(item => item.url).filter(Boolean),
         };
     }
 
-    private extractQualityScore(format: any): number {
-        const qualityLabel: string = format?.qualityLabel || format?.quality || format?.label || '';
-        const match = qualityLabel.match(/(\d{3,4})p/);
-        if (match) return parseInt(match[1], 10);
+    private extractQualityScore(format: YtDlpFormat): number {
         const height = format?.height;
-        if (typeof height === 'number') return height;
-        const bitrate = format?.bitrate || format?.bit_rate;
-        if (typeof bitrate === 'number') return bitrate / 1000;
+        if (typeof height === 'number' && height > 0) {
+            return height;
+        }
+        const vbr = format?.vbr ?? format?.tbr;
+        if (typeof vbr === 'number' && vbr > 0) {
+            return vbr;
+        }
+        const fps = format?.fps;
+        if (typeof fps === 'number' && fps > 0) {
+            return fps * 10;
+        }
         return 0;
     }
 
-    private extractAudioScore(format: any): number {
-        const bitrate = format?.bitrate || format?.bit_rate;
-        if (typeof bitrate === 'number') return bitrate;
-        const quality = String(format?.qualityLabel || format?.quality || format?.label || '');
-        const match = quality.match(/(\d+)\s?kbps/i);
-        if (match) return parseInt(match[1], 10) * 1000;
+    private extractAudioScore(format: YtDlpFormat): number {
+        const bitrate = format?.abr ?? format?.tbr;
+        if (typeof bitrate === 'number') return bitrate * 1000;
         return 0;
     }
 
@@ -141,4 +239,76 @@ export class YoutubeService {
         const fallback = `${sanitizeBaseName(title)}.${extension}`;
         return fileNameFromUrl(url, fallback);
     }
+
+    private pickBestThumbnail(info: YtDlpInfo): string | undefined {
+        const fromArray = Array.isArray(info?.thumbnails) ? info.thumbnails : [];
+        const cleanedArray = fromArray.filter(item => typeof item?.url === 'string');
+        if (cleanedArray.length > 0) {
+            const sorted = [...cleanedArray].sort((a, b) => (b.width ?? 0) - (a.width ?? 0));
+            return sorted[0]?.url || sorted[sorted.length - 1]?.url;
+        }
+        return info.thumbnail;
+    }
+
+    private extractDurationSeconds(info: YtDlpInfo): number | null {
+        const raw = info.duration;
+        if (typeof raw === 'number' && Number.isFinite(raw) && raw > 0) {
+            return Math.round(raw);
+        }
+        return null;
+    }
+
+    private resolveContentType(format: YtDlpFormat, fallback: string): string {
+        if (format.mime_type) {
+            const [type] = format.mime_type.split(';');
+            if (type) {
+                return type.trim();
+            }
+        }
+        return fallback;
+    }
+
+    private summarizeFormats(formats: YtDlpFormat[]) {
+        return formats
+            .filter(format => Boolean(format.url))
+            .map(format => ({
+                formatId: format.format_id ?? null,
+                ext: format.ext ?? null,
+                height: format.height ?? null,
+                fps: format.fps ?? null,
+                mimeType: format.mime_type ?? null,
+                hasAudio: format.acodec ? format.acodec !== 'none' : null,
+                hasVideo: format.vcodec ? format.vcodec !== 'none' : null,
+                audioCodec: format.acodec ?? null,
+                videoCodec: format.vcodec ?? null,
+                bitrate: format.tbr ?? null,
+            }));
+    }
+
+    private buildQualityLabel(format: YtDlpFormat, isAudio = false): string {
+        if (isAudio) {
+            const abr = format.abr ?? format.tbr;
+            if (typeof abr === 'number' && abr > 0) {
+                return `${Math.round(abr)}kbps`;
+            }
+            const ext = format.ext ? format.ext.toUpperCase() : '';
+            return ext || 'audio';
+        }
+
+        const height = format.height;
+        const fps = format.fps;
+        if (typeof height === 'number' && height > 0) {
+            const base = `${height}p`;
+            if (typeof fps === 'number' && fps > 0 && fps !== 30) {
+                return `${base}${fps}`;
+            }
+            return base;
+        }
+        if (format.format_note) {
+            return format.format_note;
+        }
+        return format.ext ? format.ext.toUpperCase() : 'video';
+    }
 }
+
+export default YoutubeService;

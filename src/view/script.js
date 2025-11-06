@@ -249,6 +249,13 @@ const translations = {
     }
 };
 
+function getDurationSecondsForMedia(mediaType) {
+    if (mediaType === 'audio') {
+        return state.media.audioDurationSeconds ?? state.media.videoDurationSeconds ?? null;
+    }
+    return state.media.videoDurationSeconds ?? state.media.audioDurationSeconds ?? null;
+}
+
 donationContext.defaultAmount = lang === 'en' ? '10.00' : '10,00';
 
 const tr = (key) => {
@@ -533,10 +540,9 @@ if (!resolverSection || !input || !resolveButton || !resultSection || !videoElem
 
         if (service === 'youtube') {
             headingText = titleText || tr('mediaFound');
-        } else {
-            if (!descriptionText && titleText) {
-                descriptionText = titleText;
-            }
+            descriptionText = '';
+        } else if (!descriptionText && titleText) {
+            descriptionText = titleText;
         }
 
         if (genericTitle) {
@@ -686,6 +692,9 @@ if (!resolverSection || !input || !resolveButton || !resultSection || !videoElem
         if (state.media.service) {
             params.set('service', state.media.service);
         }
+        if (typeof state.media.shareUrl === 'string' && /^https?:\/\//.test(state.media.shareUrl)) {
+            params.set('sourceUrl', state.media.shareUrl);
+        }
         const durationSeconds = getDurationSecondsForMedia(mediaType);
         if (Number.isFinite(durationSeconds) && durationSeconds > 0) {
             params.set('duration', String(Math.round(durationSeconds)));
@@ -712,13 +721,6 @@ if (!resolverSection || !input || !resolveButton || !resultSection || !videoElem
             updateStatsGrid();
         }
         return resolved;
-    }
-
-    function getDurationSecondsForMedia(mediaType) {
-        if (mediaType === 'audio') {
-            return state.media.audioDurationSeconds ?? state.media.videoDurationSeconds ?? null;
-        }
-        return state.media.videoDurationSeconds ?? state.media.audioDurationSeconds ?? null;
     }
 
     function extractMediaDurationSeconds(data, mediaType) {

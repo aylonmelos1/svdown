@@ -8,6 +8,7 @@ import os from 'os';
 import ffmpegPath from 'ffmpeg-static';
 import { recordDownloadEvent } from '../services/sessionStore';
 import type { SupportedService } from '../services/types';
+import { findYtDlpBinary } from '../lib/ytDlp';
 
 const USER_ID_COOKIE = 'svdown_uid';
 
@@ -15,12 +16,20 @@ const MAX_FILE_SIZE_BYTES = 150 * 1024 * 1024; // 150 MB
 const DOWNLOAD_TIMEOUT_MS = 30_000;
 
 // Helper function to download a file from a URL
+const DOWNLOAD_HEADERS = {
+    'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    'Accept': '*/*',
+    'Accept-Encoding': 'identity',
+    'Connection': 'keep-alive',
+};
+
 async function downloadFile(url: string, filePath: string): Promise<void> {
     const writer = (await fs.open(filePath, 'w')).createWriteStream();
     const response = await axios.get(url, {
         responseType: 'stream',
         timeout: DOWNLOAD_TIMEOUT_MS,
         maxRedirects: 3,
+        headers: DOWNLOAD_HEADERS,
         validateStatus: status => (status ?? 0) >= 200 && (status ?? 0) < 400,
     });
 
@@ -58,6 +67,72 @@ async function downloadWithFallback(urls: string[], filePath: string): Promise<s
         }
     }
     throw lastError ?? new Error('Falha ao baixar arquivo');
+}
+
+type YtDlpDownloadOptions = {
+    sourceUrl: string;
+    tempDir: string;
+    mediaType: 'video' | 'audio';
+};
+
+async function downloadViaYtDlp(options: YtDlpDownloadOptions): Promise<string> {
+    const binaryPath = await findYtDlpBinary();
+
+    const outputPrefix = path.join(options.tempDir, options.mediaType === 'audio' ? 'yt-audio' : 'yt-video');
+    const baseArgs = [
+        '--no-progress',
+        '--no-playlist',
+        '--force-overwrites',
+        '--ignore-errors',
+        '--restrict-filenames',
+        '--concurrent-fragments', '1',
+        '-o', `${outputPrefix}.%(ext)s`,
+    ];
+    const formatArgs = options.mediaType === 'audio'
+        ? ['-f', 'bestaudio[ext=m4a]/bestaudio/best']
+        : ['-f', 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best', '--merge-output-format', 'mp4'];
+    const ffmpegLocationArgs =
+        typeof ffmpegPath === 'string' && ffmpegPath.length > 0
+            ? ['--ffmpeg-location', ffmpegPath]
+            : [];
+
+    const ytArgs = [...formatArgs, ...ffmpegLocationArgs, ...baseArgs, options.sourceUrl];
+    const ytProcess = spawn(binaryPath, ytArgs, { stdio: ['ignore', 'pipe', 'pipe'] });
+
+    let stderrBuffer = '';
+    let stdoutBuffer = '';
+    ytProcess.stderr.on('data', (chunk) => {
+        const text = chunk.toString();
+        stderrBuffer += text;
+    });
+    ytProcess.stdout.on('data', (chunk) => {
+        stdoutBuffer += chunk.toString();
+    });
+
+    const exitCode: number = await new Promise((resolve, reject) => {
+        ytProcess.on('error', reject);
+        ytProcess.on('close', resolve);
+    });
+
+    if (exitCode !== 0) {
+        const stderrText = stderrBuffer.trim();
+        const stdoutText = stdoutBuffer.trim();
+        const reason = stderrText || stdoutText;
+        throw new Error(`yt-dlp exited with code ${exitCode}${reason ? `: ${reason}` : ''}`);
+    }
+
+    if (stderrBuffer.trim()) {
+        log.info(`yt-dlp stderr: ${stderrBuffer.trim()}`);
+    }
+
+    const files = await fs.readdir(options.tempDir);
+    const prefix = path.basename(outputPrefix);
+    const match = files.find(name => name.startsWith(`${prefix}.`));
+    if (!match) {
+        throw new Error('yt-dlp não gerou um arquivo de saída.');
+    }
+
+    return path.join(options.tempDir, match);
 }
 
 async function logOriginalMetadata(inputPath: string): Promise<number | null> {
@@ -185,7 +260,7 @@ async function sendFile(res: Response, filePath: string, fileName: string, conte
 }
 
 export const downloadVideoHandler = async (req: Request, res: Response) => {
-    const { url, fallback, type, service, duration, durationSeconds, durationMs } = req.query as {
+    const { url, fallback, type, service, duration, durationSeconds, durationMs, sourceUrl } = req.query as {
         url?: string;
         fallback?: string | string[];
         type?: string;
@@ -193,6 +268,7 @@ export const downloadVideoHandler = async (req: Request, res: Response) => {
         duration?: string;
         durationSeconds?: string;
         durationMs?: string;
+        sourceUrl?: string;
     };
     const serviceParam = parseServiceParam(service);
     const durationParam = parseDurationParam(duration ?? durationSeconds ?? durationMs);
@@ -205,6 +281,7 @@ export const downloadVideoHandler = async (req: Request, res: Response) => {
         return res.status(400).json({ error: 'URL inválida' });
     }
 
+    const sourceUrlParam = parseOptionalUrl(sourceUrl);
     const fallbackList = Array.isArray(fallback) ? fallback : fallback ? [fallback] : [];
     const candidates = [url, ...fallbackList].filter(Boolean);
     const mediaType: 'video' | 'audio' = type === 'audio' ? 'audio' : 'video';
@@ -221,25 +298,55 @@ export const downloadVideoHandler = async (req: Request, res: Response) => {
     let tempDir: string | undefined;
     try {
         tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'svdown-'));
-        const tempInputPath = path.join(tempDir, `input.${mediaType === 'audio' ? 'bin' : 'mp4'}`);
         const tempOutputPath = path.join(tempDir, mediaType === 'audio' ? 'output.mp3' : 'output.mp4');
 
-        log.info(`Starting raw download from: ${url}`);
-        const usedUrl = await downloadWithFallback(candidates, tempInputPath);
-        log.info(`Download complete from ${usedUrl}. Starting ffmpeg processing.`);
-        const probedDurationSeconds = await logOriginalMetadata(tempInputPath);
+        let tempInputPath: string | null = null;
+        let usedUrl: string | undefined;
+
+        if (serviceParam === 'youtube') {
+            const youtubeSource = sourceUrlParam ?? (isValidHttpUrl(url) ? url : null);
+            if (youtubeSource) {
+                try {
+                    log.info(`Starting yt-dlp download for ${youtubeSource}`);
+                    tempInputPath = await downloadViaYtDlp({
+                        sourceUrl: youtubeSource,
+                        tempDir,
+                        mediaType,
+                    });
+                    usedUrl = youtubeSource;
+                    log.info(`yt-dlp download finished for ${youtubeSource}`);
+                } catch (error) {
+                    const message = error instanceof Error ? error.message : String(error);
+                    log.warn(`yt-dlp download failed for ${youtubeSource}: ${message}`);
+                }
+            } else {
+                log.warn('Nenhuma fonte válida do YouTube recebida; tentando download direto.');
+            }
+        }
+
+        if (!tempInputPath) {
+            tempInputPath = path.join(tempDir, mediaType === 'audio' ? 'input.bin' : 'input.mp4');
+            log.info(`Starting raw download from: ${url}`);
+            usedUrl = await downloadWithFallback(candidates, tempInputPath);
+        }
+
+        const effectiveInputPath = tempInputPath;
+        const effectiveSource = usedUrl ?? url;
+
+        log.info(`Download complete from ${effectiveSource}. Starting ffmpeg processing.`);
+        const probedDurationSeconds = await logOriginalMetadata(effectiveInputPath);
 
         try {
             if (mediaType === 'audio') {
-                await convertToMp3(tempInputPath, tempOutputPath);
+                await convertToMp3(effectiveInputPath, tempOutputPath);
                 trackDownload({ durationSeconds: probedDurationSeconds });
                 await sendFile(res, tempOutputPath, downloadFileName, 'audio/mpeg');
-                log.info(`\n\n=== Download Summary ===\nArquivo: ${downloadFileName}\nEntrega: audio/mp3\nURL solicitada: ${url}\nURL resolvida: ${usedUrl}\nMetadados: removidos\n\n`);
+                log.info(`\n\n=== Download Summary ===\nArquivo: ${downloadFileName}\nEntrega: audio/mp3\nURL solicitada: ${url}\nURL resolvida: ${effectiveSource}\nMetadados: removidos\n\n`);
             } else {
-                await cleanupMetadata(tempInputPath, tempOutputPath);
+                await cleanupMetadata(effectiveInputPath, tempOutputPath);
                 trackDownload({ durationSeconds: probedDurationSeconds });
                 await sendFile(res, tempOutputPath, downloadFileName, 'video/mp4');
-                log.info(`\n\n=== Download Summary ===\nArquivo: ${downloadFileName}\nEntrega: video/mp4\nURL solicitada: ${url}\nURL resolvida: ${usedUrl}\nMetadados: removidos\n\n`);
+                log.info(`\n\n=== Download Summary ===\nArquivo: ${downloadFileName}\nEntrega: video/mp4\nURL solicitada: ${url}\nURL resolvida: ${effectiveSource}\nMetadados: removidos\n\n`);
             }
         } catch (error) {
             log.error('Failed to process media, sending original file.', error);
@@ -247,8 +354,8 @@ export const downloadVideoHandler = async (req: Request, res: Response) => {
 
             const contentType = mediaType === 'audio' ? 'application/octet-stream' : 'video/mp4';
             trackDownload({ durationSeconds: probedDurationSeconds });
-            await sendFile(res, tempInputPath, downloadFileName, contentType);
-            log.warn(`\n\n=== Download Summary ===\nArquivo: ${downloadFileName}\nEntrega: ${mediaType === 'audio' ? 'audio original' : 'video original'}\nURL solicitada: ${url}\nURL resolvida: ${usedUrl}\nMetadados: preservados (falha no processamento)\n\n`);
+            await sendFile(res, effectiveInputPath, downloadFileName, contentType);
+            log.warn(`\n\n=== Download Summary ===\nArquivo: ${downloadFileName}\nEntrega: ${mediaType === 'audio' ? 'audio original' : 'video original'}\nURL solicitada: ${url}\nURL resolvida: ${effectiveSource}\nMetadados: preservados (falha no processamento)\n\n`);
         }
 
     } catch (error) {
@@ -285,6 +392,13 @@ function isValidHttpUrl(value: string) {
     } catch {
         return false;
     }
+}
+
+function parseOptionalUrl(value: unknown): string | null {
+    if (typeof value !== 'string') {
+        return null;
+    }
+    return isValidHttpUrl(value) ? value : null;
 }
 
 function buildMetadataReport(rawMetadata: string): string {

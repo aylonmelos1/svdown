@@ -1,7 +1,7 @@
 import { ShopeeService } from './shopeeService';
 import { PinterestService } from './pinterestService';
 import { TiktokService } from './tiktokService';
-import { YoutubeService } from './youtubeService';
+import YoutubeService from './youtubeService';
 import { MetaService } from './metaService';
 import type { ResolveService } from './types';
 
