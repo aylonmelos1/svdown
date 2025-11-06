@@ -129,7 +129,7 @@ const translations = {
         donationToastTitle: 'Curtiu baixar sem marca d’água?',
         donationToastSubtitle: 'Doe e mantenha o SVDown gratuito 💜',
         donationToastTitleReminder: 'Valeu por confiar no SVDown!',
-        donationToastSubtitleReminder: 'Você já baixou {{count}} vídeos de graça. Doe e ajude a manter o SVDown gratuito 💜.',
+        donationToastSubtitleReminder: 'Você já baixou {{count}} vídeos de graça. Doe e ajude a manter o SVDown gratuito 💚.',
         donationToastCountSingular: 'Parabéns! Primeiro download gratuito!',
         donationToastCountPlural: '{{count}} downloads gratuitos',
         donationToastAria: 'Abrir modal para fazer uma doação',
