@@ -5,6 +5,7 @@ import { spawn } from 'child_process';
 import { promises as fs } from 'fs';
 import path from 'path';
 import os from 'os';
+import ffmpegPath from 'ffmpeg-static';
 import { recordDownloadEvent } from '../services/sessionStore';
 import type { SupportedService } from '../services/types';
 import { cleanupMetadata, convertToMp3, finalizeCleanMedia, metadataFeatures, redactForLogs } from '../lib/mediaCleaner';

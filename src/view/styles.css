@@ -1343,6 +1343,7 @@ body.modal-open {
 }
 
 .metadata-toast__text {
+    margin-top: 10%;
     font-size: 0.95rem;
     white-space: nowrap;
 }
@@ -1353,12 +1354,6 @@ body.modal-open {
 }
 
 .hero--compact .logo-link {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.65rem;
-    font-weight: 600;
-    color: var(--text);
-    text-decoration: none;
     margin-bottom: 1.2rem;
 }
 
@@ -1368,7 +1363,7 @@ body.modal-open {
 }
 
 .metadata-card .hero--compact .logo-link {
-    margin-bottom: 0.75rem;
+    margin-bottom: 0.5rem;
 }
 
 .metadata-card .hero__content {
@@ -1386,6 +1381,36 @@ body.modal-open {
 .metadata-card .hero__content p {
     margin: 0;
     color: color-mix(in srgb, var(--text) 85%, transparent);
+}
+
+.metadata-card .hero--compact {
+    position: relative;
+}
+
+.metadata-card .back-home {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 44px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 14px;
+    border: 1px solid color-mix(in srgb, var(--border) 75%, transparent);
+    color: var(--text);
+    text-decoration: none;
+    background: color-mix(in srgb, var(--surface-alt) 92%, rgba(255, 255, 255, 0.03));
+    box-shadow: 0 10px 25px rgba(15, 23, 42, 0.25);
+    transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+}
+
+.metadata-card .back-home:hover,
+.metadata-card .back-home:focus-visible {
+    border-color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 18%, rgba(0, 0, 0, 0.1));
+    transform: translateY(-2px);
+    outline: none;
 }
 
 .metadata-cleaner {
