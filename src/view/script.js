@@ -3,12 +3,12 @@ import { extractMediaDurationSeconds } from './duration.mjs';
 // === Analytics helpers (GTM) ===
 window.dataLayer = window.dataLayer || [];
 function dl(eventName, params = {}) {
-  window.dataLayer.push({ event: eventName, ...params });
+    window.dataLayer.push({ event: eventName, ...params });
 }
 async function sha256Hex(str) {
-  const enc = new TextEncoder().encode(str);
-  const buf = await crypto.subtle.digest('SHA-256', enc);
-  return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
+    const enc = new TextEncoder().encode(str);
+    const buf = await crypto.subtle.digest('SHA-256', enc);
+    return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
 }
 // ===============================
 
@@ -673,39 +673,39 @@ if (!resolverSection || !input || !resolveButton || !resultSection || !videoElem
 
         shareLink?.classList.add('hidden');
     }
-+
-    function initYtdownOption(loadCtrl, downloadCtrl) {
-        if (!ytdownContainer || !ytdownLoadButton || !ytdownPanel || !ytdownSelect || !ytdownStatus) return;
-        if (ytdownTitle) ytdownTitle.textContent = tr('ytdownTitle');
-        if (ytdownHint) ytdownHint.textContent = tr('ytdownHint');
-        ytdownSelect.setAttribute('aria-label', tr('ytdownSelectLabel'));
+    
+        function initYtdownOption(loadCtrl, downloadCtrl) {
+            if (!ytdownContainer || !ytdownLoadButton || !ytdownPanel || !ytdownSelect || !ytdownStatus) return;
+            if (ytdownTitle) ytdownTitle.textContent = tr('ytdownTitle');
+            if (ytdownHint) ytdownHint.textContent = tr('ytdownHint');
+            ytdownSelect.setAttribute('aria-label', tr('ytdownSelectLabel'));
 
-        ytdownLoadButton.addEventListener('click', () => {
-            if ((state.media?.service || '').toLowerCase() !== 'youtube') {
-                showToast(tr('ytdownUnavailable'), true);
-                return;
-            }
-            ytdownPanel.classList.remove('hidden');
-            ytdownCancelButton?.classList.remove('hidden');
-            loadYtdownFormats(loadCtrl);
-        });
+            ytdownLoadButton.addEventListener('click', () => {
+                if ((state.media?.service || '').toLowerCase() !== 'youtube') {
+                    showToast(tr('ytdownUnavailable'), true);
+                    return;
+                }
+                ytdownPanel.classList.remove('hidden');
+                ytdownCancelButton?.classList.remove('hidden');
+                loadYtdownFormats(loadCtrl);
+            });
 
-        ytdownDownloadButton?.addEventListener('click', (event) => {
-            event.preventDefault();
-            startYtdownDownload(downloadCtrl);
-        });
+            ytdownDownloadButton?.addEventListener('click', (event) => {
+                event.preventDefault();
+                startYtdownDownload(downloadCtrl);
+            });
 
-        ytdownCancelButton?.addEventListener('click', () => {
-            resetYtdownState(false);
-        });
+            ytdownCancelButton?.addEventListener('click', () => {
+                resetYtdownState(false);
+            });
 
-        ytdownSelect.addEventListener('change', () => {
-            updateYtdownSelectedSize();
-            if (ytdownStatus) {
-                ytdownStatus.textContent = tr('ytdownSelectLabel');
-            }
-        });
-    }
+            ytdownSelect.addEventListener('change', () => {
+                updateYtdownSelectedSize();
+                if (ytdownStatus) {
+                    ytdownStatus.textContent = tr('ytdownSelectLabel');
+                }
+            });
+        }
 
     function updateYtdownVisibility(isYouTube) {
         if (!ytdownContainer) return;
