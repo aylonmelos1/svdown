@@ -39,6 +39,8 @@ const loader = document.getElementById('loading-indicator');
 const loaderText = document.getElementById('loading-text');
 const resolveButton = document.getElementById('resolve-button');
 const toast = document.getElementById('toast');
+const metadataToast = document.getElementById('metadata-toast');
+const metadataToastText = metadataToast?.querySelector('.metadata-toast__text') || null;
 const donationToast = document.getElementById('donation-toast');
 const donationToastTitle = donationToast?.querySelector('[data-donation-toast-title]') || null;
 const donationToastSubtitle = donationToast?.querySelector('[data-donation-toast-subtitle]') || null;
@@ -75,6 +77,7 @@ const statsLabels = {
 };
 const statsTitle = statsSection?.querySelector('.user-stats__title') || null;
 let toastTimer;
+let metadataToastTimer;
 let donationToastTimer;
 let donationToastHideTimer;
 const captionBubbleTimers = new WeakMap();
@@ -134,6 +137,7 @@ const translations = {
         preparingDownload: 'Preparando download...',
         downloadStartError: 'Falha ao iniciar download.',
         metadataCleanFailed: 'Não foi possível remover os metadados do vídeo.',
+        metadataCleanSuccess: 'Arquivo livre de metadados',
         audioConvertFailed: 'Não foi possível converter o áudio para MP3.',
         downloadComplete: 'Download concluído! Confira sua pasta de downloads.',
         downloadFailed: 'Não foi possível baixar o arquivo.',
@@ -207,6 +211,7 @@ const translations = {
         preparingDownload: 'Preparing download...',
         downloadStartError: 'Failed to start the download.',
         metadataCleanFailed: 'Could not remove video metadata.',
+        metadataCleanSuccess: 'Metadata removed successfully!',
         audioConvertFailed: 'Could not convert the audio to MP3.',
         downloadComplete: 'Download complete! Check your downloads folder.',
         downloadFailed: 'Could not download the file.',
@@ -662,6 +667,8 @@ if (!resolverSection || !input || !resolveButton || !resultSection || !videoElem
             const metadataHeader = response.headers.get('X-Metadata-Cleaned');
             if (metadataHeader === 'false') {
                 showToast(tr('metadataCleanFailed'), true);
+            } else if (mediaType === 'video' && metadataHeader === 'true') {
+                showMetadataCleanToast();
             }
             const audioHeader = response.headers.get('X-Audio-Transcoded');
             if (audioHeader === 'false') {
@@ -1613,6 +1620,22 @@ if (!resolverSection || !input || !resolveButton || !resultSection || !videoElem
             toast.classList.remove('show');
             setTimeout(() => toast.classList.add('hidden'), 250);
         }, 2200);
+    }
+
+    function showMetadataCleanToast(message = tr('metadataCleanSuccess')) {
+        if (!metadataToast) return;
+        if (metadataToastText) {
+            metadataToastText.textContent = message;
+        } else {
+            metadataToast.textContent = message;
+        }
+        metadataToast.classList.remove('hidden');
+        metadataToast.classList.add('show');
+        clearTimeout(metadataToastTimer);
+        metadataToastTimer = setTimeout(() => {
+            metadataToast.classList.remove('show');
+            setTimeout(() => metadataToast.classList.add('hidden'), 250);
+        }, 4600);
     }
 
     async function safeHash(value) {
