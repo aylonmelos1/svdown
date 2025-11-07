@@ -28,6 +28,7 @@ const DEFAULT_INVIDIOUS_INSTANCES = [
 const PROVIDER_TIMEOUT_MS = 8000;
 const YOUTUBE_WATCH_BASE = 'https://www.youtube.com/watch?v=';
 const REQUEST_USER_AGENT = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36';
+const VIDFLY_ENDPOINT = 'https://api.vidfly.ai/api/media/youtube/download';
 
 type YtDlpFormat = {
     format_id?: string;
@@ -140,6 +141,29 @@ type InvidiousResponse = {
     error?: string;
 };
 
+type VidflyItem = {
+    type?: string;
+    label?: string;
+    quality?: string;
+    ext?: string;
+    extension?: string;
+    url?: string;
+    height?: number;
+    width?: number;
+    fps?: number;
+};
+
+type VidflyResponse = {
+    code?: number;
+    message?: string;
+    data?: {
+        title?: string;
+        cover?: string;
+        duration?: number;
+        items?: VidflyItem[];
+    };
+};
+
 class YoutubeService {
     private readonly pipedInstances: string[];
     private readonly invidiousInstances: string[];
@@ -220,6 +244,7 @@ class YoutubeService {
         const providerAttempts: Array<() => Promise<YtDlpInfo>> = [
             () => this.fetchViaPiped(videoId),
             () => this.fetchViaInvidious(videoId),
+            () => this.fetchViaVidfly(url, videoId),
         ];
 
         const errors: string[] = [];
@@ -340,6 +365,44 @@ class YoutubeService {
         }
 
         throw new Error(errors.join(' | '));
+    }
+
+    private async fetchViaVidfly(videoUrl: string, videoId: string): Promise<YtDlpInfo> {
+        try {
+            const response = await axios.get<VidflyResponse>(VIDFLY_ENDPOINT, {
+                timeout: PROVIDER_TIMEOUT_MS,
+                params: { url: videoUrl },
+                headers: {
+                    'User-Agent': REQUEST_USER_AGENT,
+                    'x-app-name': 'vidfly-web',
+                    'x-app-version': '1.0.0',
+                    Referer: 'https://vidfly.ai/',
+                    Accept: 'application/json',
+                },
+            });
+
+            const payload = response?.data;
+            if (!payload || payload.code !== 0 || !payload.data) {
+                throw new Error(payload?.message || 'Resposta inválida do Vidfly');
+            }
+
+            const formats = this.convertVidflyItems(payload.data.items ?? []);
+            if (!formats.length) {
+                throw new Error('Vidfly não retornou formatos disponíveis.');
+            }
+
+            return {
+                title: payload.data.title,
+                thumbnail: payload.data.cover,
+                duration: this.parseNumber(payload.data.duration),
+                webpage_url: `${YOUTUBE_WATCH_BASE}${videoId}`,
+                display_id: videoId,
+                id: videoId,
+                formats,
+            };
+        } catch (error) {
+            throw new Error(`Vidfly API failure: ${this.describeAxiosError(error)}`);
+        }
     }
 
     private mapPipedResponse(payload: PipedResponse, videoId: string): YtDlpInfo {
@@ -533,6 +596,31 @@ class YoutubeService {
         return formats;
     }
 
+    private convertVidflyItems(items: VidflyItem[]): YtDlpFormat[] {
+        return items
+            .filter(item => typeof item?.url === 'string' && item.url.length > 0)
+            .map((item, index) => {
+                const ext = this.inferExtension(item.ext ?? item.extension ?? '', item.ext ?? item.extension ?? '');
+                const resolution = this.extractResolutionFromLabel(item.label ?? item.quality);
+                const formatType = (item.type ?? '').toLowerCase();
+                const hasVideo = formatType.includes('video');
+                const hasAudio = formatType.includes('audio') || formatType.includes('with_audio');
+                const formatId = `vidfly-${formatType || 'format'}-${index}`;
+                return {
+                    format_id: formatId,
+                    format_note: item.label ?? item.quality ?? formatType,
+                    ext,
+                    url: item.url,
+                    vcodec: hasVideo ? 'unknown' : 'none',
+                    acodec: hasAudio ? 'unknown' : 'none',
+                    height: resolution ?? item.height,
+                    width: item.width,
+                    fps: item.fps,
+                    mime_type: ext ? this.extensionToMime(ext) : undefined,
+                };
+            });
+    }
+
     private extractMimeType(typeField?: string): string | undefined {
         if (!typeField) return undefined;
         const [mime] = typeField.split(';');
@@ -619,6 +707,35 @@ class YoutubeService {
         if (source.includes('3gpp') || source.includes('3gp')) return '3gp';
         if (source.includes('mpeg')) return 'mpg';
         return undefined;
+    }
+
+    private extractResolutionFromLabel(label?: string): number | undefined {
+        if (!label) return undefined;
+        const match = label.match(/(\d{3,4})p/i);
+        if (match) {
+            return parseInt(match[1], 10);
+        }
+        return undefined;
+    }
+
+    private extensionToMime(ext: string): string | undefined {
+        const normalized = ext.toLowerCase();
+        switch (normalized) {
+            case 'mp4':
+                return 'video/mp4';
+            case 'webm':
+                return 'video/webm';
+            case 'm4a':
+                return 'audio/mp4';
+            case 'm3u8':
+                return 'application/vnd.apple.mpegurl';
+            case 'mpd':
+                return 'application/dash+xml';
+            case 'opus':
+                return 'audio/opus';
+            default:
+                return undefined;
+        }
     }
 
     private extractChannelIdFromUrl(url?: string): string | null {

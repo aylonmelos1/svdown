@@ -22,6 +22,7 @@
     "cookie-parser": "^1.4.7",
     "express": "^5.1.0",
     "ffmpeg-static": "^5.2.0",
+    "metadownloader": "^1.0.0",
     "npx": "^10.2.2",
     "puppeteer": "^24.27.0",
     "tslog": "^4.10.2",
