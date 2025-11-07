@@ -79,6 +79,19 @@ body {
     text-decoration: none;
 }
 
+.hero__cta {
+    margin-top: 1.5rem;
+}
+
+.hero__cta .btn {
+    display: inline-flex;
+    gap: 0.4rem;
+    align-items: center;
+    justify-content: center;
+    width: auto;
+    padding-inline: 1.5rem;
+}
+
 .language-switch {
     position: fixed;
     top: clamp(0.75rem, 3vw, 1.5rem);
@@ -1265,6 +1278,130 @@ body.modal-open {
 .metadata-toast__text {
     font-size: 0.95rem;
     white-space: nowrap;
+}
+
+.hero--compact {
+    padding-block: clamp(2rem, 6vw, 3.5rem);
+    text-align: center;
+}
+
+.hero--compact .logo-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.65rem;
+    font-weight: 600;
+    color: var(--text);
+    text-decoration: none;
+    margin-bottom: 1.2rem;
+}
+
+.metadata-cleaner {
+    max-width: 920px;
+    margin: 0 auto;
+    padding: clamp(1.5rem, 4vw, 3rem);
+    display: grid;
+    gap: 2rem;
+}
+
+.metadata-card {
+    background: color-mix(in srgb, var(--surface-alt) 85%, rgba(255, 255, 255, 0.04));
+    border-radius: 28px;
+    border: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
+    padding: clamp(1.5rem, 4vw, 2.75rem);
+    box-shadow: 0 30px 70px rgba(0, 0, 0, 0.25);
+}
+
+.metadata-card header h2 {
+    margin: 0 0 0.2rem;
+}
+
+.metadata-form {
+    margin-top: 1.5rem;
+    display: grid;
+    gap: 1rem;
+}
+
+.upload-zone {
+    border: 2px dashed color-mix(in srgb, var(--border) 60%, transparent);
+    border-radius: 24px;
+    padding: clamp(1.5rem, 4vw, 2.4rem);
+    background: rgba(15, 23, 42, 0.35);
+    text-align: center;
+    transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.upload-zone:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 4px;
+}
+
+.upload-zone.dragover {
+    border-color: var(--accent);
+    background: rgba(249, 115, 22, 0.12);
+}
+
+.upload-zone__illustration {
+    font-size: 2.2rem;
+    margin-bottom: 0.4rem;
+}
+
+.upload-zone__title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin-bottom: 0.2rem;
+}
+
+.upload-zone__subtitle {
+    margin: 0;
+    color: color-mix(in srgb, var(--text) 75%, transparent);
+}
+
+.upload-zone__subtitle button {
+    background: none;
+    border: none;
+    color: var(--accent);
+    font-weight: 600;
+    cursor: pointer;
+    padding: 0;
+}
+
+.upload-zone__hint {
+    margin-top: 0.8rem;
+    font-size: 0.9rem;
+    color: color-mix(in srgb, var(--text) 65%, transparent);
+}
+
+.metadata-tips {
+    background: rgba(15, 23, 42, 0.4);
+    border-radius: 24px;
+    border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+    padding: clamp(1.25rem, 3vw, 2rem);
+}
+
+.metadata-tips h2 {
+    margin-top: 0;
+}
+
+.metadata-tips ul {
+    margin: 0.8rem 0 0;
+    padding-left: 1.2rem;
+    color: color-mix(in srgb, var(--text) 85%, transparent);
+}
+
+.metadata-tips li + li {
+    margin-top: 0.4rem;
+}
+
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
 }
 
 .donation-toast {

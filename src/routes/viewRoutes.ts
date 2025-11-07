@@ -14,6 +14,7 @@ export function createViewRouter(viewPath: string): Router {
     router.get('/en', sendView(path.join('en', 'index.html'), '/en'));
     router.get('/en/how-to', sendView(path.join('en', 'how-to.html'), '/en/how-to'));
     router.get('/como-usar', sendView('como-usar.html', '/como-usar'));
+    router.get('/remover-metadados', sendView('metadata-cleaner.html', '/remover-metadados'));
     router.get('/sitemap.xml', sendView('sitemap.xml', '/sitemap.xml'));
 
     router.get('/*splat', (_req, res) => {
