@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import log from '../log';
 import { services } from '../services';
+import { ServiceAvailabilityError } from '../services/errors';
 
 export const resolveLinkResponse = async (req: Request, res: Response) => {
     const link = req.body.link as string;
@@ -20,12 +21,23 @@ export const resolveLinkResponse = async (req: Request, res: Response) => {
         }
     } catch (error) {
         log.error(error);
-        const message = error instanceof Error ? error.message : 'Falha ao resolver link';
-        const isClientError =
-            message.startsWith('Link') ||
-            message.startsWith('Parâmetro') ||
-            message.startsWith('Tipo') ||
-            message.includes('não suportado');
-        res.status(isClientError ? 400 : 500).json({ error: message });
+        let message = error instanceof Error ? error.message : 'Falha ao resolver link';
+        let statusCode = 500;
+
+        if (error instanceof ServiceAvailabilityError) {
+            statusCode = error.statusCode;
+            if (error.detail) {
+                log.warn(`Detalhes do erro de disponibilidade (${error.service}): ${error.detail}`);
+            }
+        } else {
+            const isClientError =
+                message.startsWith('Link') ||
+                message.startsWith('Parâmetro') ||
+                message.startsWith('Tipo') ||
+                message.includes('não suportado');
+            statusCode = isClientError ? 400 : 500;
+        }
+
+        res.status(statusCode).json({ error: message });
     }
 };
