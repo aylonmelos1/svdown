@@ -10,12 +10,6 @@ const EXECUTABLE_CANDIDATES = [
     'yt-dlp',
 ];
 
-const COOKIE_PATH_ENV_VARS = [
-    'YT_DLP_COOKIES_PATH',
-    'YT_DLP_COOKIES_FILE',
-    'YTDLP_COOKIES_PATH',
-];
-
 export async function findYtDlpBinary(): Promise<string> {
     for (const candidate of EXECUTABLE_CANDIDATES) {
         if (!candidate) continue;
@@ -35,19 +29,4 @@ export async function findYtDlpBinary(): Promise<string> {
     }
 
     throw new Error('yt-dlp não encontrado. Defina YT_DLP_BINARY ou adicione o executável em ./bin/yt-dlp.');
-}
-
-export async function buildYtDlpCookieArgs(): Promise<string[]> {
-    const cookiePath = COOKIE_PATH_ENV_VARS.map(name => process.env[name]).find(Boolean);
-    if (!cookiePath) {
-        return [];
-    }
-
-    try {
-        await fs.access(cookiePath, fsConstants.R_OK);
-    } catch {
-        throw new Error(`Arquivo de cookies do yt-dlp não pode ser lido: ${cookiePath}`);
-    }
-
-    return ['--cookies', cookiePath];
 }

@@ -8,7 +8,6 @@ import os from 'os';
 import ffmpegPath from 'ffmpeg-static';
 import { recordDownloadEvent } from '../services/sessionStore';
 import type { SupportedService } from '../services/types';
-import { findYtDlpBinary } from '../lib/ytDlp';
 
 const USER_ID_COOKIE = 'svdown_uid';
 
@@ -67,72 +66,6 @@ async function downloadWithFallback(urls: string[], filePath: string): Promise<s
         }
     }
     throw lastError ?? new Error('Falha ao baixar arquivo');
-}
-
-type YtDlpDownloadOptions = {
-    sourceUrl: string;
-    tempDir: string;
-    mediaType: 'video' | 'audio';
-};
-
-async function downloadViaYtDlp(options: YtDlpDownloadOptions): Promise<string> {
-    const binaryPath = await findYtDlpBinary();
-
-    const outputPrefix = path.join(options.tempDir, options.mediaType === 'audio' ? 'yt-audio' : 'yt-video');
-    const baseArgs = [
-        '--no-progress',
-        '--no-playlist',
-        '--force-overwrites',
-        '--ignore-errors',
-        '--restrict-filenames',
-        '--concurrent-fragments', '1',
-        '-o', `${outputPrefix}.%(ext)s`,
-    ];
-    const formatArgs = options.mediaType === 'audio'
-        ? ['-f', 'bestaudio[ext=m4a]/bestaudio/best']
-        : ['-f', 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best', '--merge-output-format', 'mp4'];
-    const ffmpegLocationArgs =
-        typeof ffmpegPath === 'string' && ffmpegPath.length > 0
-            ? ['--ffmpeg-location', ffmpegPath]
-            : [];
-
-    const ytArgs = [...formatArgs, ...ffmpegLocationArgs, ...baseArgs, options.sourceUrl];
-    const ytProcess = spawn(binaryPath, ytArgs, { stdio: ['ignore', 'pipe', 'pipe'] });
-
-    let stderrBuffer = '';
-    let stdoutBuffer = '';
-    ytProcess.stderr.on('data', (chunk) => {
-        const text = chunk.toString();
-        stderrBuffer += text;
-    });
-    ytProcess.stdout.on('data', (chunk) => {
-        stdoutBuffer += chunk.toString();
-    });
-
-    const exitCode: number = await new Promise((resolve, reject) => {
-        ytProcess.on('error', reject);
-        ytProcess.on('close', resolve);
-    });
-
-    if (exitCode !== 0) {
-        const stderrText = stderrBuffer.trim();
-        const stdoutText = stdoutBuffer.trim();
-        const reason = stderrText || stdoutText;
-        throw new Error(`yt-dlp exited with code ${exitCode}${reason ? `: ${reason}` : ''}`);
-    }
-
-    if (stderrBuffer.trim()) {
-        log.info(`yt-dlp stderr: ${stderrBuffer.trim()}`);
-    }
-
-    const files = await fs.readdir(options.tempDir);
-    const prefix = path.basename(outputPrefix);
-    const match = files.find(name => name.startsWith(`${prefix}.`));
-    if (!match) {
-        throw new Error('yt-dlp não gerou um arquivo de saída.');
-    }
-
-    return path.join(options.tempDir, match);
 }
 
 async function logOriginalMetadata(inputPath: string): Promise<number | null> {
@@ -260,7 +193,7 @@ async function sendFile(res: Response, filePath: string, fileName: string, conte
 }
 
 export const downloadVideoHandler = async (req: Request, res: Response) => {
-    const { url, fallback, type, service, duration, durationSeconds, durationMs, sourceUrl } = req.query as {
+    const { url, fallback, type, service, duration, durationSeconds, durationMs } = req.query as {
         url?: string;
         fallback?: string | string[];
         type?: string;
@@ -268,7 +201,6 @@ export const downloadVideoHandler = async (req: Request, res: Response) => {
         duration?: string;
         durationSeconds?: string;
         durationMs?: string;
-        sourceUrl?: string;
     };
     const serviceParam = parseServiceParam(service);
     const durationParam = parseDurationParam(duration ?? durationSeconds ?? durationMs);
@@ -281,7 +213,6 @@ export const downloadVideoHandler = async (req: Request, res: Response) => {
         return res.status(400).json({ error: 'URL inválida' });
     }
 
-    const sourceUrlParam = parseOptionalUrl(sourceUrl);
     const fallbackList = Array.isArray(fallback) ? fallback : fallback ? [fallback] : [];
     const candidates = [url, ...fallbackList].filter(Boolean);
     const mediaType: 'video' | 'audio' = type === 'audio' ? 'audio' : 'video';
@@ -302,27 +233,6 @@ export const downloadVideoHandler = async (req: Request, res: Response) => {
 
         let tempInputPath: string | null = null;
         let usedUrl: string | undefined;
-
-        if (serviceParam === 'youtube') {
-            const youtubeSource = sourceUrlParam ?? (isValidHttpUrl(url) ? url : null);
-            if (youtubeSource) {
-                try {
-                    log.info(`Starting yt-dlp download for ${youtubeSource}`);
-                    tempInputPath = await downloadViaYtDlp({
-                        sourceUrl: youtubeSource,
-                        tempDir,
-                        mediaType,
-                    });
-                    usedUrl = youtubeSource;
-                    log.info(`yt-dlp download finished for ${youtubeSource}`);
-                } catch (error) {
-                    const message = error instanceof Error ? error.message : String(error);
-                    log.warn(`yt-dlp download failed for ${youtubeSource}: ${message}`);
-                }
-            } else {
-                log.warn('Nenhuma fonte válida do YouTube recebida; tentando download direto.');
-            }
-        }
 
         if (!tempInputPath) {
             tempInputPath = path.join(tempDir, mediaType === 'audio' ? 'input.bin' : 'input.mp4');
@@ -392,13 +302,6 @@ function isValidHttpUrl(value: string) {
     } catch {
         return false;
     }
-}
-
-function parseOptionalUrl(value: unknown): string | null {
-    if (typeof value !== 'string') {
-        return null;
-    }
-    return isValidHttpUrl(value) ? value : null;
 }
 
 function buildMetadataReport(rawMetadata: string): string {

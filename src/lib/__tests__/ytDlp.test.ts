@@ -39,35 +39,3 @@ describe('findYtDlpBinary', () => {
         await fs.rm(tmpDir, { recursive: true, force: true });
     });
 });
-
-describe('buildYtDlpCookieArgs', () => {
-    it('retorna array vazio quando nenhuma variável de ambiente está definida', async () => {
-        delete process.env.YT_DLP_COOKIES_PATH;
-        delete process.env.YT_DLP_COOKIES_FILE;
-        delete process.env.YTDLP_COOKIES_PATH;
-        const { buildYtDlpCookieArgs } = await importModule();
-
-        await expect(buildYtDlpCookieArgs()).resolves.toEqual([]);
-    });
-
-    it('inclui o parâmetro --cookies quando o arquivo existe', async () => {
-        const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'yt-dlp-cookies-'));
-        const cookieFile = path.join(tmpDir, 'cookies.txt');
-        await fs.writeFile(cookieFile, '# Netscape HTTP Cookie File', { encoding: 'utf-8' });
-
-        process.env.YT_DLP_COOKIES_PATH = cookieFile;
-        const { buildYtDlpCookieArgs } = await importModule();
-
-        await expect(buildYtDlpCookieArgs()).resolves.toEqual(['--cookies', cookieFile]);
-
-        await fs.rm(tmpDir, { recursive: true, force: true });
-    });
-
-    it('lança erro quando o arquivo informado não pode ser lido', async () => {
-        const missingFile = path.join(os.tmpdir(), 'yt-dlp-missing-cookies.txt');
-        process.env.YT_DLP_COOKIES_FILE = missingFile;
-        const { buildYtDlpCookieArgs } = await importModule();
-
-        await expect(buildYtDlpCookieArgs()).rejects.toThrow('Arquivo de cookies do yt-dlp não pode ser lido');
-    });
-});
