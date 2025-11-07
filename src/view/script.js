@@ -34,6 +34,16 @@ const genericDownloadVideo = document.getElementById('generic-download-video');
 const genericDownloadAudio = document.getElementById('generic-download-audio');
 const genericBrowserVideo = document.getElementById('generic-browser-video');
 const genericBrowserAudio = document.getElementById('generic-browser-audio');
+const ytdownContainer = document.getElementById('ytdown-option');
+const ytdownLoadButton = document.getElementById('ytdown-load');
+const ytdownPanel = document.getElementById('ytdown-panel');
+const ytdownSelect = document.getElementById('ytdown-select');
+const ytdownSize = document.getElementById('ytdown-size');
+const ytdownStatus = document.getElementById('ytdown-status');
+const ytdownDownloadButton = document.getElementById('ytdown-download');
+const ytdownCancelButton = document.getElementById('ytdown-cancel');
+const ytdownTitle = document.getElementById('ytdown-title');
+const ytdownHint = document.getElementById('ytdown-hint');
 const shareLink = document.getElementById('share-link');
 const loader = document.getElementById('loading-indicator');
 const loaderText = document.getElementById('loading-text');
@@ -102,10 +112,18 @@ const state = {
         audioDurationSeconds: null,
     },
     linkHash: '',
+    lastResolvedLink: '',
     resolveStartTime: 0,
     userId: '',
     downloadCount: initialDownloadCount,
     stats: null,
+};
+
+const ytdownState = {
+    linkHash: '',
+    items: [],
+    pollingTimer: null,
+    activeMediaUrl: '',
 };
 
 const donationContext = {
@@ -146,6 +164,20 @@ const translations = {
         browserDownloadStarted: 'Abrimos o link direto em uma nova aba. Se o download não começar, use "Salvar como".',
         browserDownloadPopupBlocked: 'O navegador bloqueou a abertura do link. Permita pop-ups ou use o download padrão.',
         browserDownloadUnavailable: 'Link direto indisponível agora.',
+        ytdownTitle: 'Modo alternativo (YouTube)',
+        ytdownHint: 'Download direto do provedor original, sem limpar metadados.',
+        ytdownLoadOptions: 'Carregar opções alternativas',
+        ytdownLoading: 'Buscando opções...',
+        ytdownNoOptions: 'Não encontramos formatos disponíveis agora.',
+        ytdownSelectLabel: 'Escolha o formato disponível',
+        ytdownSizeLabel: 'Tamanho aproximado:',
+        ytdownDownloadCta: 'Baixar via modo alternativo',
+        ytdownPreparing: 'Preparando...',
+        ytdownProgress: 'Progresso: {{percent}} · {{size}}',
+        ytdownCompleted: 'Arquivo pronto! Abrindo download...',
+        ytdownError: 'Não foi possível usar o modo alternativo agora.',
+        ytdownUnavailable: 'O modo alternativo só funciona para links do YouTube.',
+        ytdownDirectOpen: 'Abrimos o arquivo em uma nova aba. Se nada acontecer, copie o link e cole no seu navegador.',
         browserDownloadConfirmVideo: 'Vamos abrir o vídeo diretamente no seu navegador em uma nova aba. Deseja continuar?',
         browserDownloadConfirmAudio: 'Vamos abrir o áudio diretamente no seu navegador em uma nova aba. Deseja continuar?',
         readyForAnother: 'Pronto para baixar outro vídeo!',
@@ -220,6 +252,20 @@ const translations = {
         browserDownloadStarted: 'Opened the direct link in a new tab. Use "Save as" if it does not start automatically.',
         browserDownloadPopupBlocked: 'Your browser blocked the new tab. Allow pop-ups or use the standard download.',
         browserDownloadUnavailable: 'Direct link unavailable right now.',
+        ytdownTitle: 'Alternate mode (YouTube)',
+        ytdownHint: 'Direct download from the source provider. Metadata is not cleaned.',
+        ytdownLoadOptions: 'Load alternate options',
+        ytdownLoading: 'Fetching options...',
+        ytdownNoOptions: 'No formats available right now.',
+        ytdownSelectLabel: 'Choose a format',
+        ytdownSizeLabel: 'Approximate size:',
+        ytdownDownloadCta: 'Download via alternate mode',
+        ytdownPreparing: 'Preparing...',
+        ytdownProgress: 'Progress: {{percent}} · {{size}}',
+        ytdownCompleted: 'File is ready! Opening download...',
+        ytdownError: 'Could not use the alternate mode now.',
+        ytdownUnavailable: 'The alternate mode is only available for YouTube links.',
+        ytdownDirectOpen: 'We opened the download in a new tab. If nothing happens, copy and paste the link in your browser.',
         browserDownloadConfirmVideo: 'We will open the video directly in your browser in a new tab. Continue?',
         browserDownloadConfirmAudio: 'We will open the audio directly in your browser in a new tab. Continue?',
         readyForAnother: 'Ready to grab another video!',
@@ -329,8 +375,11 @@ if (!resolverSection || !input || !resolveButton || !resultSection || !videoElem
     const downloadButtonCtrl = initDownloadButton(downloadLink, tr('downloadVideo'), tr('downloading'));
     const genericVideoButtonCtrl = initDownloadButton(genericDownloadVideo, tr('downloadVideo'), tr('downloading'));
     const genericAudioButtonCtrl = initDownloadButton(genericDownloadAudio, tr('downloadAudio'), tr('preparingMp3'));
+    const ytdownLoadButtonCtrl = initDownloadButton(ytdownLoadButton, tr('ytdownLoadOptions'), tr('ytdownLoading'));
+    const ytdownDownloadButtonCtrl = initDownloadButton(ytdownDownloadButton, tr('ytdownDownloadCta'), tr('ytdownPreparing'));
     setButtonLabel(genericBrowserVideo, tr('browserDownloadVideo'));
     setButtonLabel(genericBrowserAudio, tr('browserDownloadAudio'));
+    initYtdownOption(ytdownLoadButtonCtrl, ytdownDownloadButtonCtrl);
 
     resolveButton.addEventListener('click', () => handleResolve(input.value.trim()));
     downloadLink.addEventListener('click', (event) => handleDownload(event, 'video', downloadButtonCtrl));
@@ -393,6 +442,7 @@ if (!resolverSection || !input || !resolveButton || !resultSection || !videoElem
             return;
         }
 
+        state.lastResolvedLink = link;
         state.resolveStartTime = performance.now();
         state.linkHash = '';
         let domain = '';
@@ -542,6 +592,7 @@ if (!resolverSection || !input || !resolveButton || !resultSection || !videoElem
         genericCard?.classList.remove('hidden');
 
         clearVideoElement(videoElement);
+        resetYtdownState(true);
 
         const videoSelection = data?.video;
         const audioSelection = data?.audio;
@@ -618,7 +669,261 @@ if (!resolverSection || !input || !resolveButton || !resultSection || !videoElem
             genericBrowserAudio.classList.toggle('hidden', !(supportsBrowserDownload && hasAudio));
         }
 
+        updateYtdownVisibility(isYouTube);
+
         shareLink?.classList.add('hidden');
+    }
++
+    function initYtdownOption(loadCtrl, downloadCtrl) {
+        if (!ytdownContainer || !ytdownLoadButton || !ytdownPanel || !ytdownSelect || !ytdownStatus) return;
+        if (ytdownTitle) ytdownTitle.textContent = tr('ytdownTitle');
+        if (ytdownHint) ytdownHint.textContent = tr('ytdownHint');
+        ytdownSelect.setAttribute('aria-label', tr('ytdownSelectLabel'));
+
+        ytdownLoadButton.addEventListener('click', () => {
+            if ((state.media?.service || '').toLowerCase() !== 'youtube') {
+                showToast(tr('ytdownUnavailable'), true);
+                return;
+            }
+            ytdownPanel.classList.remove('hidden');
+            ytdownCancelButton?.classList.remove('hidden');
+            loadYtdownFormats(loadCtrl);
+        });
+
+        ytdownDownloadButton?.addEventListener('click', (event) => {
+            event.preventDefault();
+            startYtdownDownload(downloadCtrl);
+        });
+
+        ytdownCancelButton?.addEventListener('click', () => {
+            resetYtdownState(false);
+        });
+
+        ytdownSelect.addEventListener('change', () => {
+            updateYtdownSelectedSize();
+            if (ytdownStatus) {
+                ytdownStatus.textContent = tr('ytdownSelectLabel');
+            }
+        });
+    }
+
+    function updateYtdownVisibility(isYouTube) {
+        if (!ytdownContainer) return;
+        ytdownContainer.classList.toggle('hidden', !isYouTube);
+        if (!isYouTube) {
+            resetYtdownState(true);
+        }
+    }
+
+    function resetYtdownState(clearLink) {
+        if (ytdownState.pollingTimer) {
+            clearTimeout(ytdownState.pollingTimer);
+            ytdownState.pollingTimer = null;
+        }
+        ytdownState.items = [];
+        ytdownState.activeMediaUrl = '';
+        if (clearLink) {
+            ytdownState.linkHash = '';
+        }
+        if (ytdownSelect) {
+            ytdownSelect.innerHTML = '';
+            ytdownSelect.classList.add('hidden');
+        }
+        ytdownDownloadButton?.classList.add('hidden');
+        ytdownCancelButton?.classList.add('hidden');
+        if (ytdownSize) {
+            ytdownSize.textContent = '';
+        }
+        if (ytdownStatus) {
+            ytdownStatus.textContent = '';
+        }
+        ytdownPanel?.classList.add('hidden');
+    }
+
+    function getCurrentYouTubeLink() {
+        if ((state.media?.service || '').toLowerCase() !== 'youtube') return '';
+        return state.lastResolvedLink || state.media.shareUrl || '';
+    }
+
+    async function loadYtdownFormats(loadCtrl) {
+        const sourceUrl = getCurrentYouTubeLink();
+        if (!sourceUrl) {
+            showToast(tr('ytdownUnavailable'), true);
+            return;
+        }
+        loadCtrl?.setLoading(true);
+        if (ytdownStatus) {
+            ytdownStatus.textContent = tr('ytdownLoading');
+        }
+        ytdownSelect?.classList.add('hidden');
+        ytdownDownloadButton?.classList.add('hidden');
+
+        try {
+            if (ytdownState.items.length && ytdownState.linkHash === state.linkHash) {
+                populateYtdownSelect(ytdownState.items);
+                if (ytdownStatus) {
+                    ytdownStatus.textContent = tr('ytdownSelectLabel');
+                }
+                ytdownDownloadButton?.classList.remove('hidden');
+                ytdownCancelButton?.classList.remove('hidden');
+                return;
+            }
+
+            const data = await postYtdownProxy(sourceUrl);
+            const items = Array.isArray(data?.api?.mediaItems) ? data.api.mediaItems : [];
+
+            if (!items.length) {
+                ytdownState.items = [];
+                ytdownState.linkHash = state.linkHash;
+                if (ytdownStatus) {
+                    ytdownStatus.textContent = tr('ytdownNoOptions');
+                }
+                return;
+            }
+
+            ytdownState.items = items;
+            ytdownState.linkHash = state.linkHash;
+            populateYtdownSelect(items);
+            if (ytdownStatus) {
+                ytdownStatus.textContent = tr('ytdownSelectLabel');
+            }
+            ytdownDownloadButton?.classList.remove('hidden');
+            ytdownCancelButton?.classList.remove('hidden');
+        } catch (error) {
+            console.error(error);
+            if (ytdownStatus) {
+                ytdownStatus.textContent = tr('ytdownError');
+            }
+            showToast(tr('ytdownError'), true);
+        } finally {
+            loadCtrl?.reset();
+        }
+    }
+
+    function populateYtdownSelect(items) {
+        if (!ytdownSelect) return;
+        ytdownSelect.innerHTML = '';
+        const fallbackLabel = lang === 'en' ? 'Option' : 'Opção';
+
+        items.forEach((item) => {
+            const mediaUrl = typeof item?.mediaUrl === 'string' ? item.mediaUrl : '';
+            if (!mediaUrl) return;
+            const option = document.createElement('option');
+            option.value = mediaUrl;
+            const segments = [];
+            if (item?.mediaExtension) segments.push(item.mediaExtension);
+            if (item?.mediaQuality) {
+                segments.push(item.mediaQuality);
+            } else if (item?.mediaRes) {
+                segments.push(item.mediaRes);
+            }
+            const baseLabel = segments.length ? segments.join(' · ') : fallbackLabel;
+            const sizeLabel = item?.mediaFileSize ? ` (${item.mediaFileSize})` : '';
+            option.textContent = `${baseLabel}${sizeLabel}`;
+            if (item?.mediaFileSize) {
+                option.dataset.filesize = item.mediaFileSize;
+            }
+            ytdownSelect.append(option);
+        });
+
+        if (ytdownSelect.options.length > 0) {
+            ytdownSelect.selectedIndex = 0;
+            ytdownSelect.classList.remove('hidden');
+            updateYtdownSelectedSize();
+        }
+    }
+
+    function updateYtdownSelectedSize() {
+        if (!ytdownSelect || !ytdownSize) return;
+        const selected = ytdownSelect.options[ytdownSelect.selectedIndex];
+        const size = selected?.dataset?.filesize || '';
+        ytdownSize.textContent = size ? `${tr('ytdownSizeLabel')} ${size}` : '';
+    }
+
+    async function startYtdownDownload(downloadCtrl) {
+        if (!ytdownSelect) return;
+        const mediaUrl = ytdownSelect.value;
+        if (!mediaUrl) {
+            showToast(tr('ytdownNoOptions'), true);
+            return;
+        }
+        ytdownState.activeMediaUrl = mediaUrl;
+        downloadCtrl?.setLoading(true);
+        if (ytdownStatus) {
+            ytdownStatus.textContent = tr('ytdownPreparing');
+        }
+        if (ytdownState.pollingTimer) {
+            clearTimeout(ytdownState.pollingTimer);
+            ytdownState.pollingTimer = null;
+        }
+        await pollYtdownProgress(mediaUrl, downloadCtrl);
+    }
+
+    async function pollYtdownProgress(mediaUrl, downloadCtrl, attempt = 0) {
+        try {
+            const data = await postYtdownProxy(mediaUrl);
+            const api = data?.api || {};
+            if (api.percent === 'Completed' && api.fileUrl) {
+                downloadCtrl?.reset();
+                if (ytdownStatus) {
+                    ytdownStatus.textContent = tr('ytdownCompleted');
+                }
+                openYtdownFile(api.fileUrl, api.fileName);
+                showToast(tr('ytdownDirectOpen'));
+                return;
+            }
+            const percent = api.percent || '...';
+            const size = api.fileSize || api.estimatedFileSize || '—';
+            if (ytdownStatus) {
+                ytdownStatus.textContent = formatMessage('ytdownProgress', {
+                    percent,
+                    size,
+                });
+            }
+            ytdownState.pollingTimer = window.setTimeout(() => {
+                pollYtdownProgress(mediaUrl, downloadCtrl, attempt);
+            }, 2000);
+        } catch (error) {
+            console.error(error);
+            if (attempt >= 3) {
+                downloadCtrl?.reset();
+                if (ytdownStatus) {
+                    ytdownStatus.textContent = tr('ytdownError');
+                }
+                showToast(tr('ytdownError'), true);
+                return;
+            }
+            ytdownState.pollingTimer = window.setTimeout(() => {
+                pollYtdownProgress(mediaUrl, downloadCtrl, attempt + 1);
+            }, 2000);
+        }
+    }
+
+    async function postYtdownProxy(targetUrl) {
+        const response = await fetch('/api/ytdown/proxy', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url: targetUrl }),
+        });
+        const data = await response.json();
+        if (!response.ok) {
+            throw new Error(data?.error || 'YTDown proxy error');
+        }
+        return data;
+    }
+
+    function openYtdownFile(fileUrl, fileName) {
+        if (!fileUrl) return;
+        const anchor = document.createElement('a');
+        anchor.href = fileUrl;
+        if (fileName) {
+            anchor.download = fileName;
+        }
+        anchor.target = '_blank';
+        anchor.rel = 'noopener noreferrer';
+        document.body.appendChild(anchor);
+        anchor.click();
+        anchor.remove();
     }
 
     async function handleDownload(event, mediaType, buttonCtrl) {
@@ -838,6 +1143,9 @@ if (!resolverSection || !input || !resolveButton || !resultSection || !videoElem
         shareLink?.classList.add('hidden');
         genericBrowserVideo?.classList.add('hidden');
         genericBrowserAudio?.classList.add('hidden');
+        resetYtdownState(true);
+        ytdownContainer?.classList.add('hidden');
+        state.lastResolvedLink = '';
         updateUrlWithQuery('');
         const ready = tr('readyForAnother');
         showFeedback(ready);

@@ -8,29 +8,30 @@
     <meta name="description" content="Envie seu arquivo de vídeo e receba uma versão limpa, sem metadados sensíveis.">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link rel="stylesheet"
-        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
     <link rel="stylesheet" href="./styles.css" />
     <link rel="icon" type="image/svg+xml" href="./favicon.svg">
 </head>
 
 <body data-lang="pt">
-    <header class="hero hero--compact">
-        <div class="hero__content">
-            <a href="/" class="logo-link" aria-label="Voltar para a página inicial">
-                <img src="/icon.svg" alt="Logo SVDown" width="48" height="48" />
-                <span>SVDown</span>
-            </a>
-            <h1>Remova metadados em um clique</h1>
-            <p>
-                Faça upload do seu vídeo (MP4/MOV) e receba a mesma mídia, totalmente limpa e pronta para compartilhar
-                sem rastros.
-            </p>
-        </div>
-    </header>
+
 
     <main class="metadata-cleaner">
         <section class="metadata-card">
+            <header class="hero hero--compact">
+                <div class="hero__content">
+                    <a href="/" class="logo-link" aria-label="Voltar para a página inicial">
+                        <img src="/icon.svg" alt="Logo SVDown" width="48" height="48" />
+                        <span>SVDown</span>
+                    </a>
+                    <h1>Remova metadados em um clique</h1>
+                    <p>
+                        Faça upload do seu vídeo (MP4/MOV) e receba a mesma mídia, totalmente limpa e pronta para
+                        compartilhar
+                        sem rastros.
+                    </p>
+                </div>
+            </header>
             <header>
                 <h2>Envie o arquivo</h2>
                 <p>Suportamos até 200&nbsp;MB por upload.</p>
@@ -42,7 +43,8 @@
                         hidden />
                     <div class="upload-zone__illustration" aria-hidden="true">📁</div>
                     <p class="upload-zone__title">Arraste e solte aqui</p>
-                    <p class="upload-zone__subtitle">ou <button type="button" id="select-file">escolha um arquivo</button>
+                    <p class="upload-zone__subtitle">ou <button type="button" id="select-file">escolha um
+                            arquivo</button>
                     </p>
                     <p class="upload-zone__hint" data-upload-hint>Ainda nenhum arquivo selecionado.</p>
                 </div>

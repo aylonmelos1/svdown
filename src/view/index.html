@@ -306,6 +306,30 @@
                         <a id="generic-browser-audio" class="btn hidden" href="#" target="_blank" rel="noopener noreferrer">
                             <span class="btn-label">Baixar áudio no meu navegador</span>
                         </a>
+                        <div id="ytdown-option" class="alt-download hidden" aria-live="polite">
+                            <div class="alt-download__header">
+                                <p id="ytdown-title" class="alt-download__title">Modo alternativo (YouTube)</p>
+                                <p id="ytdown-hint" class="alt-download__hint">Download direto do provedor original, sem limpar metadados.</p>
+                            </div>
+                            <button id="ytdown-load" class="btn secondary" type="button">
+                                <span class="btn-label">Carregar opções</span>
+                            </button>
+                            <div id="ytdown-panel" class="alt-download__panel hidden">
+                                <label class="sr-only" for="ytdown-select">Escolha o formato</label>
+                                <div class="alt-download__row">
+                                    <select id="ytdown-select" class="alt-download__select hidden"></select>
+                                    <span id="ytdown-size" class="alt-download__size"></span>
+                                </div>
+                                <p id="ytdown-status" class="alt-download__status"></p>
+                                <div class="alt-download__actions">
+                                    <button id="ytdown-download" class="btn hidden" type="button">
+                                        <span class="btn-spinner hidden" aria-hidden="true"></span>
+                                        <span class="btn-label">Baixar via modo alternativo</span>
+                                    </button>
+                                    <button id="ytdown-cancel" class="btn secondary clear-action hidden" type="button">Fechar</button>
+                                </div>
+                            </div>
+                        </div>
                         <button id="generic-new-download" class="btn secondary clear-action" type="button">Baixar outro
                             vídeo</button>
                     </div>

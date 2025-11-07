@@ -42,6 +42,8 @@ Por padrao o servidor sobe em `http://localhost:3000`. As rotas estaticas princi
 | `NODE_ENV`           | Define flags de cookies (`secure`)                                                          | `development`     |
 | `PIPED_INSTANCES`    | Lista separada por virgulas de instancias Piped para o `youtubeService`                    | valores default   |
 | `INVIDIOUS_INSTANCES`| Lista separada por virgulas de instancias Invidious usadas como fallback no YouTube        | valores default   |
+| `YTDOWN_BASE_URL`    | Endpoint base usado pelo modo alternativo de download do YouTube                           | `https://ytdown.to` |
+| `YTDOWN_TIMEOUT_MS`  | Timeout (ms) para chamadas ao provedor alternativo                                         | `15000`           |
 
 ## API principal
 - `POST /api/resolve` – body `{ link: string }`. Identifica qual service atende o link, retorna titulo, thumbnail, URLs de video/audio e eventuais props extras (p. ex. `pageProps` da Shopee).

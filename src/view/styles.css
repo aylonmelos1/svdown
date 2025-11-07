@@ -409,6 +409,73 @@ body {
     gap: 1rem;
 }
 
+.alt-download {
+    border: 1px dashed color-mix(in srgb, var(--border) 70%, transparent);
+    border-radius: 18px;
+    padding: 1rem;
+    background: color-mix(in srgb, var(--surface-alt) 92%, rgba(255, 255, 255, 0.03));
+    display: grid;
+    gap: 0.75rem;
+}
+
+.alt-download__header {
+    display: grid;
+    gap: 0.15rem;
+}
+
+.alt-download__title {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+.alt-download__hint {
+    margin: 0;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+
+.alt-download__panel {
+    display: grid;
+    gap: 0.75rem;
+}
+
+.alt-download__row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    align-items: center;
+}
+
+.alt-download__select {
+    flex: 1;
+    min-width: 200px;
+    padding: 0.65rem 0.85rem;
+    border-radius: 12px;
+    border: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
+    background: color-mix(in srgb, var(--surface) 85%, rgba(255, 255, 255, 0.04));
+    color: var(--text);
+    font-family: inherit;
+    font-size: 0.95rem;
+}
+
+.alt-download__size {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+
+.alt-download__status {
+    margin: 0;
+    font-size: 0.9rem;
+    color: color-mix(in srgb, var(--text) 85%, transparent);
+}
+
+.alt-download__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
 .video-meta h2 {
     margin: 0;
     font-size: 1.5rem;
@@ -1295,6 +1362,32 @@ body.modal-open {
     margin-bottom: 1.2rem;
 }
 
+.metadata-card .hero--compact {
+    padding: 0 0 1.5rem;
+    text-align: left;
+}
+
+.metadata-card .hero--compact .logo-link {
+    margin-bottom: 0.75rem;
+}
+
+.metadata-card .hero__content {
+    max-width: none;
+    align-items: flex-start;
+    text-align: left;
+    gap: 0.5rem;
+}
+
+.metadata-card .hero__content h1 {
+    font-size: clamp(1.6rem, 4vw, 2.25rem);
+    margin: 0;
+}
+
+.metadata-card .hero__content p {
+    margin: 0;
+    color: color-mix(in srgb, var(--text) 85%, transparent);
+}
+
 .metadata-cleaner {
     max-width: 920px;
     margin: 0 auto;
@@ -1313,6 +1406,10 @@ body.modal-open {
 
 .metadata-card header h2 {
     margin: 0 0 0.2rem;
+}
+
+.metadata-card > header:not(.hero--compact) {
+    margin-top: 1.25rem;
 }
 
 .metadata-form {
