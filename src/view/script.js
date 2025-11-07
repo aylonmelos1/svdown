@@ -30,6 +30,8 @@ const commentCount = document.getElementById('comment-count');
 const downloadLink = document.getElementById('download-link');
 const genericDownloadVideo = document.getElementById('generic-download-video');
 const genericDownloadAudio = document.getElementById('generic-download-audio');
+const genericBrowserVideo = document.getElementById('generic-browser-video');
+const genericBrowserAudio = document.getElementById('generic-browser-audio');
 const shareLink = document.getElementById('share-link');
 const loader = document.getElementById('loading-indicator');
 const loaderText = document.getElementById('loading-text');
@@ -133,6 +135,13 @@ const translations = {
         audioConvertFailed: 'Não foi possível converter o áudio para MP3.',
         downloadComplete: 'Download concluído! Confira sua pasta de downloads.',
         downloadFailed: 'Não foi possível baixar o arquivo.',
+        browserDownloadVideo: 'Abrir no navegador',
+        browserDownloadAudio: 'Abrir áudio no navegador',
+        browserDownloadStarted: 'Abrimos o link direto em uma nova aba. Se o download não começar, use "Salvar como".',
+        browserDownloadPopupBlocked: 'O navegador bloqueou a abertura do link. Permita pop-ups ou use o download padrão.',
+        browserDownloadUnavailable: 'Link direto indisponível agora.',
+        browserDownloadConfirmVideo: 'Vamos abrir o vídeo diretamente no seu navegador em uma nova aba. Deseja continuar?',
+        browserDownloadConfirmAudio: 'Vamos abrir o áudio diretamente no seu navegador em uma nova aba. Deseja continuar?',
         readyForAnother: 'Pronto para baixar outro vídeo!',
         legendCopiedFeedback: 'Legenda copiada para a área de transferência!',
         legendCopiedToast: 'Legenda copiada!',
@@ -199,6 +208,13 @@ const translations = {
         audioConvertFailed: 'Could not convert the audio to MP3.',
         downloadComplete: 'Download complete! Check your downloads folder.',
         downloadFailed: 'Could not download the file.',
+        browserDownloadVideo: 'Open in my browser',
+        browserDownloadAudio: 'Open the audio in my browser',
+        browserDownloadStarted: 'Opened the direct link in a new tab. Use "Save as" if it does not start automatically.',
+        browserDownloadPopupBlocked: 'Your browser blocked the new tab. Allow pop-ups or use the standard download.',
+        browserDownloadUnavailable: 'Direct link unavailable right now.',
+        browserDownloadConfirmVideo: 'We will open the video directly in your browser in a new tab. Continue?',
+        browserDownloadConfirmAudio: 'We will open the audio directly in your browser in a new tab. Continue?',
         readyForAnother: 'Ready to grab another video!',
         legendCopiedFeedback: 'Caption copied to your clipboard!',
         legendCopiedToast: 'Caption copied!',
@@ -306,11 +322,15 @@ if (!resolverSection || !input || !resolveButton || !resultSection || !videoElem
     const downloadButtonCtrl = initDownloadButton(downloadLink, tr('downloadVideo'), tr('downloading'));
     const genericVideoButtonCtrl = initDownloadButton(genericDownloadVideo, tr('downloadVideo'), tr('downloading'));
     const genericAudioButtonCtrl = initDownloadButton(genericDownloadAudio, tr('downloadAudio'), tr('preparingMp3'));
+    setButtonLabel(genericBrowserVideo, tr('browserDownloadVideo'));
+    setButtonLabel(genericBrowserAudio, tr('browserDownloadAudio'));
 
     resolveButton.addEventListener('click', () => handleResolve(input.value.trim()));
     downloadLink.addEventListener('click', (event) => handleDownload(event, 'video', downloadButtonCtrl));
     genericDownloadVideo?.addEventListener('click', (event) => handleDownload(event, 'video', genericVideoButtonCtrl));
     genericDownloadAudio?.addEventListener('click', (event) => handleDownload(event, 'audio', genericAudioButtonCtrl));
+    genericBrowserVideo?.addEventListener('click', (event) => handleBrowserDirectDownload(event, 'video'));
+    genericBrowserAudio?.addEventListener('click', (event) => handleBrowserDirectDownload(event, 'audio'));
 
     input.addEventListener('keydown', event => {
         if (event.key === 'Enter') {
@@ -457,6 +477,8 @@ if (!resolverSection || !input || !resolveButton || !resultSection || !videoElem
     function renderShopeeResult(data) {
         genericCard?.classList.add('hidden');
         shopeeCard?.classList.remove('hidden');
+        genericBrowserVideo?.classList.add('hidden');
+        genericBrowserAudio?.classList.add('hidden');
 
         clearVideoElement(genericVideoElement);
 
@@ -559,20 +581,34 @@ if (!resolverSection || !input || !resolveButton || !resultSection || !videoElem
         }
         resetCaptionBubble(genericCaptionBubble);
 
+        const isYouTube = service === 'youtube';
+
         if (genericDownloadVideo) {
             const hasVideo = Boolean(videoSelection?.url);
-            genericDownloadVideo.classList.toggle('hidden', !hasVideo);
-            if (hasVideo) {
+            const hideServerVideo = isYouTube || !hasVideo;
+            genericDownloadVideo.classList.toggle('hidden', hideServerVideo);
+            if (hasVideo && !hideServerVideo) {
                 genericVideoButtonCtrl?.reset();
             }
         }
 
         if (genericDownloadAudio) {
             const hasAudio = Boolean(audioSelection?.url);
-            genericDownloadAudio.classList.toggle('hidden', !hasAudio);
-            if (hasAudio) {
+            const hideServerAudio = isYouTube || !hasAudio;
+            genericDownloadAudio.classList.toggle('hidden', hideServerAudio);
+            if (hasAudio && !hideServerAudio) {
                 genericAudioButtonCtrl?.reset();
             }
+        }
+
+        const supportsBrowserDownload = isYouTube;
+        if (genericBrowserVideo) {
+            const hasVideo = Boolean(videoSelection?.url);
+            genericBrowserVideo.classList.toggle('hidden', !(supportsBrowserDownload && hasVideo));
+        }
+        if (genericBrowserAudio) {
+            const hasAudio = Boolean(audioSelection?.url);
+            genericBrowserAudio.classList.toggle('hidden', !(supportsBrowserDownload && hasAudio));
         }
 
         shareLink?.classList.add('hidden');
@@ -678,6 +714,55 @@ if (!resolverSection || !input || !resolveButton || !resultSection || !videoElem
             buttonCtrl.setLoading(false);
             setLoading(false);
         }
+    }
+
+    async function handleBrowserDirectDownload(event, mediaType) {
+        if (event) {
+            event.preventDefault();
+        }
+
+        const confirmKey = mediaType === 'audio' ? 'browserDownloadConfirmAudio' : 'browserDownloadConfirmVideo';
+        const allowed = window.confirm(tr(confirmKey));
+        if (!allowed) {
+            return;
+        }
+
+        const selection = mediaType === 'audio' ? state.media.audio : state.media.video;
+        if (!selection || !selection.url) {
+            const unavailable = tr('browserDownloadUnavailable');
+            showFeedback(unavailable, true);
+            showToast(unavailable, true);
+            return;
+        }
+
+        const newWindow = window.open(selection.url, '_blank', 'noopener,noreferrer');
+        if (!newWindow) {
+            const blocked = tr('browserDownloadPopupBlocked');
+            showFeedback(blocked, true);
+            showToast(blocked, true);
+            return;
+        }
+
+        try {
+            const selectionHash = await safeHash(selection.url);
+            if (selectionHash) {
+                dl('browser_download_click', {
+                    link_hash: selectionHash,
+                    ts: Date.now(),
+                    media_type: mediaType,
+                    service: state.media.service || 'unknown',
+                });
+            }
+        } catch (_) {
+            // ignore analytics errors
+        }
+
+        const successMessage = tr('browserDownloadStarted');
+        showFeedback(successMessage);
+        showToast(successMessage);
+        const updatedCount = recordDownloadCount(null);
+        showDonationToast(updatedCount);
+        updateLocalStatsAfterDownload(mediaType);
     }
 
     function buildDownloadRequest(selection, mediaType) {
@@ -823,6 +908,8 @@ if (!resolverSection || !input || !resolveButton || !resultSection || !videoElem
         genericVideoButtonCtrl?.reset();
         genericAudioButtonCtrl?.reset();
         shareLink?.classList.add('hidden');
+        genericBrowserVideo?.classList.add('hidden');
+        genericBrowserAudio?.classList.add('hidden');
         updateUrlWithQuery('');
         const ready = tr('readyForAnother');
         showFeedback(ready);
@@ -890,6 +977,19 @@ if (!resolverSection || !input || !resolveButton || !resultSection || !videoElem
         downloadButtonCtrl?.setDisabled(stateValue || state.media.service !== 'shopee' || !hasVideo);
         genericVideoButtonCtrl?.setDisabled(stateValue || state.media.service === 'shopee' || !hasVideo);
         genericAudioButtonCtrl?.setDisabled(stateValue || !hasAudio);
+        const supportsBrowserDownloads = (state.media.service || '').toString().toLowerCase() === 'youtube';
+        setBrowserButtonState(genericBrowserVideo, stateValue || !supportsBrowserDownloads || !hasVideo);
+        setBrowserButtonState(genericBrowserAudio, stateValue || !supportsBrowserDownloads || !hasAudio);
+    }
+
+    function setBrowserButtonState(button, disabled) {
+        if (!button) return;
+        button.classList.toggle('disabled', disabled);
+        if (disabled) {
+            button.setAttribute('aria-disabled', 'true');
+        } else {
+            button.removeAttribute('aria-disabled');
+        }
     }
 
     async function copyCaptionToClipboard(targetCaption = videoCaption, bubbleElement = captionBubble) {
@@ -1683,6 +1783,17 @@ if (!resolverSection || !input || !resolveButton || !resultSection || !videoElem
         }
         return `${name}${normalizedExt}`;
     }
+}
+
+function setButtonLabel(button, labelText) {
+    if (!button || !labelText) return;
+    let label = button.querySelector('.btn-label');
+    if (!label) {
+        label = document.createElement('span');
+        label.className = 'btn-label';
+        button.append(label);
+    }
+    label.textContent = labelText;
 }
 
 function initDownloadButton(button, defaultLabel, loadingLabel) {
