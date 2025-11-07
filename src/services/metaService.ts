@@ -1,12 +1,33 @@
-import axios from 'axios';
-import * as cheerio from 'cheerio';
-import vm from 'node:vm';
+import snapsave from 'metadownloader';
 import type { ResolveResult, ResolveService } from './types';
 import { fileNameFromUrl, sanitizeBaseName } from './utils';
 
-export class MetaService implements ResolveService {
-    private readonly endpoint = 'https://snapsave.app/action.php?lang=id';
+type MetaDownloaderItem = {
+    url?: string;
+    thumbnail?: string;
+    quality?: string;
+    label?: string;
+};
 
+type MetaDownloaderResponse = {
+    developer?: string;
+    status?: boolean;
+    msg?: string;
+    data?: MetaDownloaderItem[];
+};
+
+type MetaMedia = {
+    videoUrl?: string;
+    thumbnail?: string;
+    qualityLabel?: string;
+    fallbackUrls?: string[];
+};
+
+type DownloaderFn = (url: string) => Promise<MetaDownloaderResponse>;
+
+const PROVIDER_NAME = 'metadownloader';
+
+export class MetaService implements ResolveService {
     public isApplicable(url: string): boolean {
         try {
             const parsed = new URL(url);
@@ -29,8 +50,7 @@ export class MetaService implements ResolveService {
             throw new Error('Link inválido');
         }
 
-        const decodedHtml = await this.fetchSnapSaveHtml(parsed.toString());
-        const media = this.extractMedia(decodedHtml);
+        const media = await this.fetchMetaDownloads(parsed);
         if (!media.videoUrl) {
             throw new Error('Não foi possível localizar o arquivo para download');
         }
@@ -44,183 +64,66 @@ export class MetaService implements ResolveService {
             thumbnail: media.thumbnail,
             video: {
                 url: media.videoUrl,
+                fallbackUrls: media.fallbackUrls,
                 fileName,
-                qualityLabel: media.qualityLabel,
+                qualityLabel: media.qualityLabel ?? 'original',
             },
             extras: {
-                source: this.endpoint,
+                source: PROVIDER_NAME,
             },
         };
     }
 
-    private async fetchSnapSaveHtml(targetUrl: string): Promise<string> {
+    private async fetchMetaDownloads(parsedUrl: URL): Promise<MetaMedia> {
         try {
-            const payload = new URLSearchParams({ url: targetUrl }).toString();
-            const response = await axios.post(this.endpoint, payload, {
-                headers: {
-                    accept:
-                        'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9',
-                    'content-type': 'application/x-www-form-urlencoded',
-                    origin: 'https://snapsave.app',
-                    referer: 'https://snapsave.app/id',
-                    'user-agent':
-                        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/103.0.0.0 Safari/537.36',
-                },
-                timeout: 15000,
-            });
+            const downloader = this.pickDownloader(parsedUrl);
+            const response = await downloader(parsedUrl.toString());
 
-            const scriptPayload = String(response.data ?? '');
-            const decoded = this.decodeSnapSaveScript(scriptPayload);
-            if (!decoded) {
-                throw new Error('Resposta vazia do Snapsave');
+            if (!response?.status) {
+                const reason = response?.msg || 'Resposta inválida do metadownloader';
+                throw new Error(reason);
             }
-            return decoded;
+
+            const items = this.normalizeDownloaderItems(response?.data ?? []);
+            if (items.length === 0) {
+                throw new Error('O provedor não retornou URLs de mídia válidos.');
+            }
+
+            const [primary, ...rest] = items;
+            return {
+                videoUrl: primary.url,
+                thumbnail: primary.thumbnail,
+                qualityLabel: primary.qualityLabel,
+                fallbackUrls: rest.map(item => item.url).filter(Boolean),
+            };
         } catch (error) {
             const message = error instanceof Error ? error.message : 'falha desconhecida';
-            throw new Error(`Falha na requisição ao Snapsave: ${message}`);
+            throw new Error(`Falha na requisição ao ${PROVIDER_NAME}: ${message}`);
         }
     }
 
-    private decodeSnapSaveScript(obfuscatedJs: string): string {
-        const captured: Record<string, string> = {};
-        const elements: Record<string, any> = {};
+    private pickDownloader(parsedUrl: URL): DownloaderFn {
+        const host = parsedUrl.hostname.toLowerCase();
+        const snapsaveAny = snapsave as unknown as Record<string, DownloaderFn>;
 
-        const buildElement = (key?: string) => {
-            let innerHTMLValue = '';
-            return {
-                style: {},
-                classList: {
-                    add: () => undefined,
-                    remove: () => undefined,
-                },
-                reset: () => undefined,
-                set innerHTML(value: string) {
-                    innerHTMLValue = value;
-                    if (key) captured[key] = value;
-                },
-                get innerHTML() {
-                    return innerHTMLValue;
-                },
-                remove() {
-                    if (key) captured[key] = '';
-                },
-            };
-        };
-
-        const createElement = (id: string) => {
-            if (!elements[id]) {
-                elements[id] = buildElement(id);
-            }
-            return elements[id];
-        };
-
-        const querySelector = (selector: string) => {
-            if (selector?.startsWith('#')) {
-                return createElement(selector.slice(1));
-            }
-            return buildElement(undefined);
-        };
-
-        const context = {
-            window: { location: { hostname: 'snapsave.app' } },
-            document: {
-                scrollingElement: {},
-                documentElement: {},
-                getElementById: (id: string) => createElement(id),
-                querySelector,
-                querySelectorAll: () => ({ forEach: () => undefined }),
-            },
-            navigator: {},
-            gtag: () => undefined,
-            getPosition: () => ({ y: 0 }),
-            animate: () => undefined,
-        } as Record<string, any>;
-
-        try {
-            vm.createContext(context);
-            vm.runInContext(obfuscatedJs, context, { timeout: 5000 });
-        } catch (_error) {
-            throw new Error('Falha ao decodificar resposta do Snapsave');
-        }
-
-        const downloadHtml = captured['download-section'] || '';
-        if (!downloadHtml) {
-            const alertMessage = this.normalizeAlert(captured['alert']);
-            if (this.isPrivateAlert(alertMessage)) {
-                throw new Error('Perfil privado. O Facebook marcou esse vídeo como privado.');
-            }
-            if (alertMessage) {
-                throw new Error(alertMessage);
+        if (host.includes('facebook') || host.includes('fb.watch')) {
+            const facebookFn = snapsaveAny?.facebook;
+            if (typeof facebookFn === 'function') {
+                return facebookFn;
             }
         }
 
-        return downloadHtml;
+        return snapsave as unknown as DownloaderFn;
     }
 
-    private normalizeAlert(raw?: string): string {
-        if (!raw) return '';
-        try {
-            const $ = cheerio.load(`<div>${raw}</div>`);
-            return $.text().trim();
-        } catch {
-            return raw;
-        }
-    }
-
-    private isPrivateAlert(message?: string): boolean {
-        if (!message) return false;
-        const normalized = message.toLowerCase();
-        return normalized.includes('pribadi') || normalized.includes('privado') || normalized.includes('private');
-    }
-
-    private extractMedia(html: string): { videoUrl?: string; thumbnail?: string; qualityLabel?: string } {
-        if (!html) return {};
-        const $ = cheerio.load(html);
-
-        const selectors = [
-            '.download-items__btn a[href]',
-            '.download-link a.button[href*="rapidcdn"]',
-            'a[href*="rapidcdn"]',
-        ];
-        let videoAnchor: cheerio.Cheerio<cheerio.Element> | undefined;
-        for (const selector of selectors) {
-            const candidate = $(selector).filter((_, el) => Boolean($(el).attr('href'))).first();
-            if (candidate.length) {
-                videoAnchor = candidate;
-                break;
-            }
-        }
-
-        if (!videoAnchor || !videoAnchor.length) {
-            return {
-                thumbnail: this.extractThumbnail($),
-            };
-        }
-
-        let qualityLabel = videoAnchor.text().trim();
-        const trQuality = videoAnchor.closest('tr').find('.video-quality').first().text().trim();
-        if (trQuality) {
-            qualityLabel = trQuality;
-        }
-
-        return {
-            videoUrl: videoAnchor.attr('href') || undefined,
-            thumbnail: this.extractThumbnail($),
-            qualityLabel: qualityLabel || undefined,
-        };
-    }
-
-    private extractThumbnail($: cheerio.CheerioAPI): string | undefined {
-        const thumbSources = [
-            '.download-items__thumb img',
-            '.download-link img',
-            'img[src*="rapidcdn"]',
-        ];
-        for (const selector of thumbSources) {
-            const src = $(selector).first().attr('src');
-            if (src) return src;
-        }
-        return undefined;
+    private normalizeDownloaderItems(items: MetaDownloaderItem[]) {
+        return items
+            .filter(item => typeof item?.url === 'string' && item.url.trim().length > 0)
+            .map(item => ({
+                url: item.url!.trim(),
+                thumbnail: item.thumbnail,
+                qualityLabel: item.label ?? item.quality ?? undefined,
+            }));
     }
 
     private buildTitle(url: URL): string {
