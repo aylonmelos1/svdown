@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "tsx watch src/app.ts",
     "start": "tsx src/app.ts",
-    "test": "jest"
+    "test": "node --experimental-vm-modules ./node_modules/.bin/jest"
   },
   "keywords": [],
   "author": "",

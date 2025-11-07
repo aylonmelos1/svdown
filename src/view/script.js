@@ -1,3 +1,5 @@
+import { extractMediaDurationSeconds } from './duration.mjs';
+
 // === Analytics helpers (GTM) ===
 window.dataLayer = window.dataLayer || [];
 function dl(eventName, params = {}) {
@@ -806,87 +808,6 @@ if (!resolverSection || !input || !resolveButton || !resultSection || !videoElem
             updateStatsGrid();
         }
         return resolved;
-    }
-
-    function extractMediaDurationSeconds(data, mediaType) {
-        if (!data) return null;
-        const extras = data?.extras || {};
-        const pageProps = data?.pageProps || {};
-        const candidates = [
-            extras?.duration,
-            extras?.durationMs,
-            extras?.[`duration${mediaType === 'audio' ? 'Audio' : 'Video'}`],
-            pageProps?.mediaInfo?.video?.duration,
-            pageProps?.mediaInfo?.video?.durationMs,
-            pageProps?.mediaInfo?.video?.length,
-            pageProps?.mediaInfo?.video?.lengthSeconds,
-            pageProps?.mediaInfo?.duration,
-            pageProps?.duration,
-            data?.duration,
-        ];
-        for (const value of candidates) {
-            const parsed = parseDurationToSeconds(value);
-            if (parsed) {
-                return parsed;
-            }
-        }
-        return null;
-    }
-
-    function parseDurationToSeconds(value) {
-        if (typeof value === 'number' && Number.isFinite(value)) {
-            if (value <= 0) return null;
-            if (value <= 48 * 60 * 60) {
-                return value;
-            }
-            if (value <= 48 * 60 * 60 * 1000) {
-                return value / 1000;
-            }
-        }
-        if (typeof value === 'string') {
-            const trimmed = value.trim();
-            if (!trimmed) return null;
-            const normalized = trimmed.replace(',', '.');
-            const numeric = Number.parseFloat(normalized);
-            if (Number.isFinite(numeric) && numeric > 0) {
-                if (numeric <= 48 * 60 * 60) {
-                    return numeric;
-                }
-                if (numeric <= 48 * 60 * 60 * 1000) {
-                    return numeric / 1000;
-                }
-            }
-            if (/^\d{1,2}:\d{2}(:\d{2})?$/.test(trimmed)) {
-                return parseColonDuration(trimmed);
-            }
-            if (/^PT/i.test(trimmed)) {
-                return parseIsoDuration(trimmed);
-            }
-        }
-        return null;
-    }
-
-    function parseColonDuration(value) {
-        const parts = value.split(':').map(Number);
-        if (parts.some(part => Number.isNaN(part))) return null;
-        if (parts.length === 2) {
-            const [minutes, seconds] = parts;
-            return (minutes * 60) + seconds;
-        }
-        if (parts.length === 3) {
-            const [hours, minutes, seconds] = parts;
-            return (hours * 3600) + (minutes * 60) + seconds;
-        }
-        return null;
-    }
-
-    function parseIsoDuration(value) {
-        const match = value.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+(?:\.\d+)?)S)?/i);
-        if (!match) return null;
-        const hours = Number.parseFloat(match[1] || '0');
-        const minutes = Number.parseFloat(match[2] || '0');
-        const seconds = Number.parseFloat(match[3] || '0');
-        return (hours * 3600) + (minutes * 60) + seconds;
     }
 
     function formatDownloadCountLabel(count) {
