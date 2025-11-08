@@ -395,6 +395,23 @@ if (!resolverSection || !input || !resolveButton || !resultSection || !videoElem
         }
     });
 
+    input.addEventListener('paste', (event) => {
+        // Get pasted text
+        const pastedText = (event.clipboardData || window.clipboardData).getData('text');
+        
+        // Try to extract a URL from the pasted text
+        const extractedUrl = extractUrl(pastedText);
+
+        if (extractedUrl) {
+            // If a URL is found, prevent the default paste action
+            event.preventDefault();
+            
+            // Insert only the URL into the input field
+            input.value = extractedUrl;
+        }
+        // If no URL is found, the default paste action is allowed
+    });
+
     videoCaption.addEventListener('click', () => copyCaptionToClipboard(videoCaption, captionBubble));
     videoCaption.addEventListener('keydown', event => {
         if (event.key === 'Enter' || event.key === ' ') {
@@ -436,20 +453,27 @@ if (!resolverSection || !input || !resolveButton || !resultSection || !videoElem
 
     tryResolveFromQuery();
 
-    async function handleResolve(link) {
-        if (!link) {
+    async function handleResolve(linkInput) { // Renamed parameter to linkInput for clarity
+        let linkToResolve = extractUrl(linkInput);
+
+        if (!linkToResolve) {
+            // If no URL is found, assume the whole input is the link
+            linkToResolve = linkInput;
+        }
+
+        if (!linkToResolve) {
             showFeedback(tr('enterLink'), true);
             return;
         }
 
-        state.lastResolvedLink = link;
+        state.lastResolvedLink = linkToResolve;
         state.resolveStartTime = performance.now();
         state.linkHash = '';
         let domain = '';
         let hasQuery = false;
         try {
-            state.linkHash = await sha256Hex(link);
-            const u = new URL(link);
+            state.linkHash = await sha256Hex(linkToResolve);
+            const u = new URL(linkToResolve);
             domain = u.hostname;
             hasQuery = !!u.search;
         } catch (_) {
@@ -465,7 +489,7 @@ if (!resolverSection || !input || !resolveButton || !resultSection || !videoElem
             const response = await fetch('/api/resolve', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ link }),
+                body: JSON.stringify({ link: linkToResolve }),
             });
 
             const data = await response.json();
@@ -482,8 +506,8 @@ if (!resolverSection || !input || !resolveButton || !resultSection || !videoElem
 
             renderServiceResult(data);
             showFeedback(tr('resolveSuccess'));
-            updateUrlWithQuery(link);
-
+            updateUrlWithQuery(linkToResolve); // Use linkToResolve here
+            
             const responseTimeMs = Math.round(performance.now() - state.resolveStartTime);
             dl('resolve_success', {
                 link_hash: state.linkHash,
@@ -2432,44 +2456,18 @@ function updateLocalStatsAfterDownload(mediaType) {
 }
 
 
-// Function to extract Mercado Livre clip links or short_ids from text
-function extractMercadoLivreClipLink(text) {
-  // Regex for full URLs
+// Function to extract the first URL from text
+function extractUrl(text) {
+  if (!text) {
+    return null;
+  }
   const urlRegex = /(https?:\/\/[^\s]+)/g;
   const foundUrls = text.match(urlRegex);
 
   if (foundUrls) {
-    for (const url of foundUrls) {
-      if (url.includes("mercadolivre.com.br/clips/")) {
-        return url; // Return the first full URL found
-      }
-    }
+    return foundUrls[0]; // Return the first URL found
   }
-
-  // If no full URL found, try to extract a short_id from a URL-like string
-  const shortIdRegex = /mercadolivre\.com\.br\/clips\/\?.*short_id=([a-zA-Z0-9]+)/;
-  const shortIdMatch = text.match(shortIdRegex);
-
-  if (shortIdMatch && shortIdMatch[1]) {
-    // If a short_id is found within a text, construct the full URL
-    return buildMercadoLivreClipUrl(shortIdMatch[1]);
-  }
-
-  // If no full URL or short_id pattern found, check if the text itself is a short_id
-  const directShortIdRegex = /^[a-zA-Z0-9]+$/; // Basic check for alphanumeric short_id
-  if (text.match(directShortIdRegex)) {
-      // If the text is just a short_id, construct the full URL
-      return buildMercadoLivreClipUrl(text);
-  }
-
-  return null; // No Mercado Livre clip link or short_id found
-}
-
-// Helper function to construct a full Mercado Livre clip URL from a short_id
-function buildMercadoLivreClipUrl(shortId) {
-    // This is a base URL. Parameters might need to be adjusted based on actual ML behavior.
-    // The important part is the short_id.
-    return `https://www.mercadolivre.com.br/clips/?short_id=${shortId}`;
+  return null;
 }
 
 /*
