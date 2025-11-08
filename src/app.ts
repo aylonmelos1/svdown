@@ -30,9 +30,13 @@ app.use(e.static(viewPath));
 app.use('/api', createApiRouter());
 app.use('/', createViewRouter(viewPath));
 
+import { initializeWebSocket } from './services/websocketService';
+
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   log.info(`Server is running on port ${PORT}`);
 });
 
-export default app;
+initializeWebSocket(server);
+
+export default server;
