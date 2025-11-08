@@ -553,6 +553,11 @@ if (!resolverSection || !input || !resolveButton || !resultSection || !videoElem
         }
 
         resultSection.classList.remove('hidden');
+        if (resultSection) {
+            const yOffset = -80; // Offset de 80px para cima
+            const y = resultSection.getBoundingClientRect().top + window.pageYOffset + yOffset;
+            window.scrollTo({ top: y, behavior: 'smooth' });
+        }
     }
 
     function renderShopeeResult(data) {
@@ -1967,7 +1972,7 @@ if (!resolverSection || !input || !resolveButton || !resultSection || !videoElem
         metadataToastTimer = setTimeout(() => {
             metadataToast.classList.remove('show');
             setTimeout(() => metadataToast.classList.add('hidden'), 250);
-        }, 4600);
+        }, 8000);
     }
 
     async function safeHash(value) {

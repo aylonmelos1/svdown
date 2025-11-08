@@ -1310,7 +1310,7 @@ body.modal-open {
 
 .metadata-toast {
     position: fixed;
-    top: clamp(60px, 4vw, 80px);
+    top: clamp(120px, 4vw, 180px);
     right: clamp(16px, 4vw, 40px);
     background: linear-gradient(135deg, #34d399, #16a34a);
     border-radius: 999px;
