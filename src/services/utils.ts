@@ -19,3 +19,18 @@ export function sanitizeBaseName(name?: string | null, fallback = 'video'): stri
         .toLowerCase();
     return sanitized || fallback;
 }
+
+export function extractUrl(text: string): string | null {
+    if (!text) {
+        return null;
+    }
+    const urlRegex = /(https?:\/\/[^\s]+)/g;
+    const foundUrls = text.match(urlRegex);
+
+    if (foundUrls) {
+        // Return the first URL found
+        return foundUrls[0];
+    }
+
+    return null;
+}

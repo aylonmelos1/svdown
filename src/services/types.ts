@@ -1,4 +1,4 @@
-export type SupportedService = 'shopee' | 'pinterest' | 'tiktok' | 'youtube' | 'meta';
+export type SupportedService = 'shopee' | 'pinterest' | 'tiktok' | 'youtube' | 'meta' | 'mercadolivre';
 
 export interface MediaSelection {
     url: string;

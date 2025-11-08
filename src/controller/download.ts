@@ -173,7 +173,10 @@ export const downloadVideoHandler = async (req: Request, res: Response) => {
         let tempInputPath: string | null = null;
         let usedUrl: string | undefined;
 
-        if (!tempInputPath) {
+        if (serviceParam === 'mercadolivre') {
+            tempInputPath = await downloadHlsStream(url, tempDir, 'input.mp4');
+            usedUrl = url;
+        } else {
             tempInputPath = path.join(tempDir, mediaType === 'audio' ? 'input.bin' : 'input.mp4');
             log.info(`Starting raw download from: ${redactForLogs(url)}`);
             usedUrl = await downloadWithFallback(candidates, tempInputPath);
@@ -226,6 +229,90 @@ export const downloadVideoHandler = async (req: Request, res: Response) => {
         }
     }
 };
+
+async function downloadHlsStream(masterPlaylistUrl: string, outputDir: string, outputFileName: string): Promise<string> {
+    // 1. Download master playlist
+    const masterPlaylistResponse = await axios.get(masterPlaylistUrl);
+    const masterPlaylist = masterPlaylistResponse.data;
+
+    // 2. Parse master playlist to find best quality stream
+    const streams = masterPlaylist.split('\n').filter((line: string) => line.startsWith('#EXT-X-STREAM-INF'));
+    let bestStreamUrl: string | null = null;
+
+    if (streams.length === 0) {
+        // Not a master playlist, but a media playlist
+        bestStreamUrl = masterPlaylistUrl;
+    } else {
+        let maxResolution = 0;
+        for (let i = 0; i < streams.length; i++) {
+            const streamInfo = streams[i];
+            const resolutionMatch = streamInfo.match(/RESOLUTION=(\d+)x(\d+)/);
+            if (resolutionMatch) {
+                const width = parseInt(resolutionMatch[1], 10);
+                const height = parseInt(resolutionMatch[2], 10);
+                const resolution = width * height;
+                if (resolution > maxResolution) {
+                    maxResolution = resolution;
+                    const nextLine = masterPlaylist.split('\n')[masterPlaylist.split('\n').indexOf(streamInfo) + 1];
+                    bestStreamUrl = new URL(nextLine, masterPlaylistUrl).href;
+                }
+            }
+        }
+    }
+
+
+    if (!bestStreamUrl) {
+        throw new Error('Could not find a suitable stream in the playlist.');
+    }
+
+    // 3. Download media playlist
+    const mediaPlaylistResponse = await axios.get(bestStreamUrl);
+    const mediaPlaylist = mediaPlaylistResponse.data;
+
+    // 4. Parse media playlist to get segment URLs
+    const segmentUrls = mediaPlaylist.split('\n').filter((line: string) => line.length > 0 && !line.startsWith('#')).map((line: string) => new URL(line, bestStreamUrl as string).href);
+
+    // 5. Download all segments in parallel
+    const segmentDir = path.join(outputDir, 'segments');
+    await fs.mkdir(segmentDir);
+    const segmentPaths: string[] = [];
+
+    await Promise.all(segmentUrls.map(async (segmentUrl: string, index: number) => {
+        const segmentPath = path.join(segmentDir, `segment${index}.ts`);
+        await downloadFile(segmentUrl, segmentPath);
+        segmentPaths.push(segmentPath);
+    }));
+
+    // 6. Create a text file listing all the segment files in order
+    const concatFilePath = path.join(segmentDir, 'concat.txt');
+    const concatContent = segmentPaths.map(p => `file '${p.replace(/'/g, "'\\''")}'`).join('\n');
+    await fs.writeFile(concatFilePath, concatContent);
+
+    // 7. Use ffmpeg to concatenate the segments
+    const outputPath = path.join(outputDir, outputFileName);
+    if (!ffmpegPath) {
+        throw new Error('ffmpeg binary not found');
+    }
+    const ffmpeg = spawn(ffmpegPath, [
+        '-f', 'concat',
+        '-safe', '0',
+        '-i', concatFilePath,
+        '-c', 'copy',
+        outputPath
+    ]);
+
+    return new Promise<string>((resolve, reject) => {
+        ffmpeg.on('close', (code) => {
+            if (code === 0) {
+                resolve(outputPath);
+            } else {
+                reject(new Error(`ffmpeg exited with code ${code}`));
+            }
+        });
+        ffmpeg.on('error', reject);
+    });
+}
+
 
 function buildTimestampedFileName(extension: string) {
     const ext = extension.startsWith('.') ? extension : `.${extension}`;
@@ -350,7 +437,7 @@ function parseServiceParam(value: unknown): SupportedService | null {
         return null;
     }
     const normalized = value.toLowerCase() as SupportedService;
-    const allowed: SupportedService[] = ['shopee', 'pinterest', 'tiktok', 'youtube', 'meta'];
+    const allowed: SupportedService[] = ['shopee', 'pinterest', 'tiktok', 'youtube', 'meta', 'mercadolivre'];
     return allowed.includes(normalized) ? normalized : null;
 }
 

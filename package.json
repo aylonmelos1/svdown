@@ -24,6 +24,7 @@
     "express": "^5.1.0",
     "ffmpeg-static": "^5.2.0",
     "ffprobe-static": "^3.1.0",
+    "jsdom": "^27.0.1",
     "metadownloader": "^1.0.0",
     "multer": "^1.4.5-lts.1",
     "npx": "^10.2.2",

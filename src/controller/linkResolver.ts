@@ -2,9 +2,11 @@ import { Request, Response } from 'express';
 import log from '../log';
 import { services } from '../services';
 import { ServiceAvailabilityError } from '../services/errors';
+import { extractUrl } from '../services/utils';
 
 export const resolveLinkResponse = async (req: Request, res: Response) => {
-    const link = req.body.link as string;
+    const linkInput = req.body.link as string;
+    const link = extractUrl(linkInput) || linkInput;
     log.info(`Received link to resolve: ${link}`);
 
     try {
