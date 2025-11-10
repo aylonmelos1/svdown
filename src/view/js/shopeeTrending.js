@@ -42,11 +42,34 @@ function renderShopeeProducts(products) {
         productCard.rel = 'noopener noreferrer';
         productCard.classList.add('shopee-product-card');
 
-        productCard.innerHTML = `
-            <img data-src="${product.image_url}" alt="${product.name}" class="shopee-product-card__image lazy-load">
-            <h3 class="shopee-product-card__name">${product.name}</h3>
-            <p class="shopee-product-card__price">R$ ${parseFloat(product.price).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-        `;
+            const realPrice = parseFloat(product.price);
+
+            // Generate a random discount between 51% and 75%
+            const discountValue = Math.random() * (0.75 - 0.51) + 0.51;
+            const discountPercentage = Math.floor(discountValue * 100);
+
+            // Calculate the "original" price based on the random discount
+            const originalPrice = realPrice / (1 - discountValue);
+
+            productCard.innerHTML = `
+                <div class="shopee-product-card__discount-badge">-${discountPercentage}%</div>
+                <img data-src="${product.image_url}" alt="${product.name}" class="shopee-product-card__image lazy-load">
+                <h3 class="shopee-product-card__name">${product.name}</h3>
+                <div class="shopee-product-card__pricing">
+                    <p class="shopee-product-card__price">R$ ${realPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                    <p class="shopee-product-card__price--original">R$ ${originalPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                </div>
+            `;
+        productCard.addEventListener('click', () => {
+            if (window.dataLayer) {
+                window.dataLayer.push({
+                    event: 'shopee_product_click',
+                    product_name: product.name,
+                    product_id: product.name, // Using name as ID if no specific ID is available
+                    offer_link: product.offer_link
+                });
+            }
+        });
         shopeeGrid.appendChild(productCard);
     });
     lazyLoadImages();
