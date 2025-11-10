@@ -120,7 +120,7 @@ export async function cleanupMetadata(inputPath: string, outputPath: string): Pr
     }
 
     const videoInfo = await getVideoInfo(inputPath);
-    const needsResizing = videoInfo && videoInfo.width < 720;
+    const needsResizing = videoInfo && videoInfo.width < 580;
 
     const baseArgs = [
         '-i',
@@ -352,22 +352,32 @@ async function runFfprobeVerification(
 
 function collectOffendingTags(data: { format?: { tags?: Record<string, string> }; streams?: Array<{ tags?: Record<string, string> }> }): string[] {
     const offending: string[] = [];
-    if (data.format?.tags) {
-        for (const [key, value] of Object.entries(data.format.tags)) {
-            if (value && PROHIBITED_TAGS.has(key.toLowerCase())) {
-                offending.push(`format.${key}`);
+    const processTags = (tags: Record<string, string>, prefix: string) => {
+        for (const [key, value] of Object.entries(tags)) {
+            if (!value) continue;
+
+            const lowerKey = key.toLowerCase();
+
+            if (PROHIBITED_TAGS.has(lowerKey)) {
+                // Special handling for the 'encoder' tag
+                if (lowerKey === 'encoder') {
+                    // If the encoder tag is from our own ffmpeg process, ignore it.
+                    if (value.includes('Lavc')) {
+                        continue;
+                    }
+                }
+                offending.push(`${prefix}.${key}`);
             }
         }
+    };
+
+    if (data.format?.tags) {
+        processTags(data.format.tags, 'format');
     }
     if (Array.isArray(data.streams)) {
         data.streams.forEach((stream, index) => {
-            if (!stream.tags) {
-                return;
-            }
-            for (const [key, value] of Object.entries(stream.tags)) {
-                if (value && PROHIBITED_TAGS.has(key.toLowerCase())) {
-                    offending.push(`stream[${index}].${key}`);
-                }
+            if (stream.tags) {
+                processTags(stream.tags, `stream[${index}]`);
             }
         });
     }
