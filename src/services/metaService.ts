@@ -1,6 +1,11 @@
+import log from '../log';
 import snapsave from 'metadownloader';
 import type { ResolveResult, ResolveService } from './types';
 import { fileNameFromUrl, sanitizeBaseName } from './utils';
+import { exec } from 'child_process';
+import { promisify } from 'util';
+
+const execAsync = promisify(exec);
 
 type MetaDownloaderItem = {
     url?: string;
@@ -26,6 +31,7 @@ type MetaMedia = {
 type DownloaderFn = (url: string) => Promise<MetaDownloaderResponse>;
 
 const PROVIDER_NAME = 'metadownloader';
+const YTDLP_PATH = './bin/yt-dlp'; // Caminho relativo ao root do projeto
 
 export class MetaService implements ResolveService {
     public isApplicable(url: string): boolean {
@@ -78,6 +84,7 @@ export class MetaService implements ResolveService {
         try {
             const downloader = this.pickDownloader(parsedUrl);
             const response = await downloader(parsedUrl.toString());
+            // log.debug(`[metadownloader] Raw response: ${JSON.stringify(response)}`); // Removido
 
             if (!response?.status) {
                 const reason = response?.msg || 'Resposta inválida do metadownloader';
@@ -97,8 +104,33 @@ export class MetaService implements ResolveService {
                 fallbackUrls: rest.map(item => item.url).filter(Boolean),
             };
         } catch (error) {
+            // log.warn(`[metadownloader] Falha na requisição ao ${PROVIDER_NAME}, tentando yt-dlp: ${error instanceof Error ? error.message : 'falha desconhecida'}`); // Removido
+            return this.fetchWithYtdlp(parsedUrl);
+        }
+    }
+
+    private async fetchWithYtdlp(parsedUrl: URL): Promise<MetaMedia> {
+        try {
+            const { stdout } = await execAsync(`${YTDLP_PATH} -j "${parsedUrl.toString()}"`);
+            const data = JSON.parse(stdout);
+
+            const videoUrl = data.url || data.webpage_url; // yt-dlp pode retornar 'url' ou 'webpage_url'
+            const thumbnail = data.thumbnail;
+            const qualityLabel = data.format_note || data.ext;
+
+            if (!videoUrl) {
+                throw new Error('yt-dlp não encontrou URL de vídeo.');
+            }
+
+            return {
+                videoUrl,
+                thumbnail,
+                qualityLabel,
+                fallbackUrls: [], // yt-dlp geralmente retorna a melhor qualidade diretamente
+            };
+        } catch (error) {
             const message = error instanceof Error ? error.message : 'falha desconhecida';
-            throw new Error(`Falha na requisição ao ${PROVIDER_NAME}: ${message}`);
+            throw new Error(`Falha na requisição ao yt-dlp: ${message}`);
         }
     }
 

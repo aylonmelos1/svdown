@@ -55,11 +55,74 @@ const missingOptionalTools = new Set<string>();
 type OptionalToolName = 'AtomicParsley' | 'exiftool';
 const optionalToolCache = new Map<OptionalToolName, string | null>();
 
+async function getVideoInfo(filePath: string): Promise<{ width: number; height: number } | null> {
+    return new Promise((resolve, reject) => {
+        const ffprobe = spawn(ffprobePath, [
+            '-v', 'error',
+            '-select_streams', 'v:0',
+            '-show_entries', 'stream=width,height',
+            '-print_format', 'json',
+            filePath
+        ]);
+
+        let stdoutBuffer = '';
+        let stderrBuffer = '';
+
+        ffprobe.stdout.on('data', (data) => {
+            stdoutBuffer += data.toString();
+        });
+
+        ffprobe.stderr.on('data', (data) => {
+            stderrBuffer += data.toString();
+        });
+
+        ffprobe.on('error', (err: NodeJS.ErrnoException) => {
+            if (err.code === 'ENOENT') {
+                if (!missingOptionalTools.has(ffprobePath)) {
+                    missingOptionalTools.add(ffprobePath);
+                    log.warn('[media] ffprobe not available; cannot determine video dimensions.');
+                }
+                resolve(null);
+            } else {
+                // Reject on other errors
+                reject(err);
+            }
+        });
+
+        ffprobe.on('close', (code) => {
+            if (code !== 0) {
+                log.warn(`ffprobe (video dimensions) exited with code ${code}${stderrBuffer ? `: ${stderrBuffer.trim()}` : ''}`);
+                resolve(null); // It's a non-critical failure, resolve with null
+                return;
+            }
+            try {
+                const parsed = JSON.parse(stdoutBuffer || '{}');
+                const stream = parsed.streams?.[0];
+                if (stream && typeof stream.width === 'number' && typeof stream.height === 'number') {
+                    resolve({ width: stream.width, height: stream.height });
+                } else {
+                    log.warn('Could not parse video dimensions from ffprobe output.');
+                    resolve(null);
+                }
+            } catch (error) {
+                // It's a non-critical failure, resolve with null
+                log.error(`Failed to parse ffprobe output for dimensions: ${(error as Error).message}`);
+                resolve(null);
+            }
+        });
+    });
+}
+
+
 export async function cleanupMetadata(inputPath: string, outputPath: string): Promise<void> {
     if (!ffmpegPath) {
         throw new Error('ffmpeg binary not found');
     }
-    const ffmpeg = spawn(ffmpegPath, [
+
+    const videoInfo = await getVideoInfo(inputPath);
+    const needsResizing = videoInfo && videoInfo.width < 720;
+
+    const baseArgs = [
         '-i',
         inputPath,
         '-map',
@@ -90,12 +153,25 @@ export async function cleanupMetadata(inputPath: string, outputPath: string): Pr
         'location=',
         '-movflags',
         'use_metadata_tags',
-        '-c:v',
-        'copy',
+    ];
+
+    const videoArgs = needsResizing
+        ? ['-vf', 'scale=720:-2'] // Re-encode with scaling
+        : ['-c:v', 'copy'];      // Just copy the video stream
+
+    const finalArgs = [
+        ...baseArgs,
+        ...videoArgs,
         '-c:a',
         'copy',
         outputPath,
-    ]);
+    ];
+
+    if (needsResizing) {
+        log.info(`Video width is ${videoInfo.width}px. Resizing to 720px width.`);
+    }
+
+    const ffmpeg = spawn(ffmpegPath, finalArgs);
 
     return new Promise<void>((resolve, reject) => {
         ffmpeg.on('close', (code) => {
