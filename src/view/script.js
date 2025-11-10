@@ -14,7 +14,7 @@ async function sha256Hex(str) {
 
 const resolverSection = document.getElementById('resolver-form');
 const input = document.getElementById('link-input');
-const feedback = document.getElementById('feedback');
+
 const resultSection = document.getElementById('result-section');
 const shopeeCard = document.getElementById('shopee-card');
 const genericCard = document.getElementById('generic-card');
@@ -1224,28 +1224,42 @@ if (!resolverSection || !input || !resolveButton || !resultSection || !videoElem
     }
 
     function showFeedback(message, isError = false) {
-        if (!feedback) return;
-        feedback.textContent = message;
-        feedback.classList.toggle('error', isError);
-        feedback.classList.remove('hidden');
+        if (!loader || !loaderText) return;
+        const spinner = loader.querySelector('.spinner');
+        if (spinner) {
+            spinner.classList.add('hidden');
+        }
+        loaderText.textContent = message;
+        loader.classList.toggle('error', isError);
+        loader.classList.remove('hidden');
     }
-
     function setLoading(stateValue, message = tr('processing')) {
-        if (message && loaderText) loaderText.textContent = message;
-        loader?.classList.toggle('hidden', !stateValue);
-        resolveButton.disabled = stateValue;
-        input.disabled = stateValue;
+    if (!loader || !loaderText) return;
 
-        const hasVideo = Boolean(state.media.video?.url);
-        const hasAudio = Boolean(state.media.audio?.url);
+    const spinner = loader.querySelector('.spinner');
 
-        downloadButtonCtrl?.setDisabled(stateValue || state.media.service !== 'shopee' || !hasVideo);
-        genericVideoButtonCtrl?.setDisabled(stateValue || state.media.service === 'shopee' || !hasVideo);
-        genericAudioButtonCtrl?.setDisabled(stateValue || !hasAudio);
-        const supportsBrowserDownloads = (state.media.service || '').toString().toLowerCase() === 'youtube';
-        setBrowserButtonState(genericBrowserVideo, stateValue || !supportsBrowserDownloads || !hasVideo);
-        setBrowserButtonState(genericBrowserAudio, stateValue || !supportsBrowserDownloads || !hasAudio);
+    if (stateValue) {
+        if (spinner) spinner.classList.remove('hidden');
+        loader.classList.remove('error');
+        if (message) loaderText.textContent = message;
+        loader.classList.remove('hidden');
+    } else {
+        loader.classList.add('hidden');
     }
+
+    resolveButton.disabled = stateValue;
+    input.disabled = stateValue;
+
+    const hasVideo = Boolean(state.media.video?.url);
+    const hasAudio = Boolean(state.media.audio?.url);
+
+    downloadButtonCtrl?.setDisabled(stateValue || state.media.service !== 'shopee' || !hasVideo);
+    genericVideoButtonCtrl?.setDisabled(stateValue || state.media.service === 'shopee' || !hasVideo);
+    genericAudioButtonCtrl?.setDisabled(stateValue || !hasAudio);
+    const supportsBrowserDownloads = (state.media.service || '').toString().toLowerCase() === 'youtube';
+    setBrowserButtonState(genericBrowserVideo, stateValue || !supportsBrowserDownloads || !hasVideo);
+    setBrowserButtonState(genericBrowserAudio, stateValue || !supportsBrowserDownloads || !hasAudio);
+}
 
     function setBrowserButtonState(button, disabled) {
         if (!button) return;
