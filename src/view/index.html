@@ -210,11 +210,6 @@
                 dispositivo.</p>
         </noscript>
 
-        <div id="loading-indicator" class="loading hidden" role="status" aria-live="polite">
-            <span class="spinner" aria-hidden="true"></span>
-            <span id="loading-text">Processando…</span>
-        </div>
-
         <section id="user-stats" class="user-stats" aria-live="polite">
             <header class="user-stats__header">
                 <p class="user-stats__title">O quanto os usuários já baixaram</p>
@@ -245,8 +240,10 @@
                 <input id="link-input" type="url" name="link" placeholder="https://..." required autocomplete="off" />
                 <button id="resolve-button" type="button">Buscar Vídeo</button>
             </div>
-            <p id="feedback" class="feedback hidden"></p>
-
+            <div id="loading-indicator" class="loading hidden" role="status" aria-live="polite">
+                <span class="spinner" aria-hidden="true"></span>
+                <span id="loading-text">Processando…</span>
+            </div>
             <div class="hero__cta">
                 <a class="btn secondary" href="/remover-metadados">Já tenho o arquivo e quero limpar metadados</a>
             </div>
