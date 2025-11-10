@@ -254,6 +254,19 @@
 
         <section id="shopee-trending-products" class="shopee-trending-products">
             <h2 class="shopee-trending-products__title">Produtos em Alta na Shopee</h2>
+            <div id="shopee-filters" style="display: none;">
+                <label for="shopee-price-filter">Ordenar por Preço:</label>
+                <select id="shopee-price-filter">
+                    <option value="">Padrão</option>
+                    <option value="asc">Menor para Maior</option>
+                    <option value="desc">Maior para Menor</option>
+                </select>
+
+                <label for="shopee-brand-filter">Filtrar por Marca:</label>
+                <select id="shopee-brand-filter">
+                    <option value="">Todas as Marcas</option>
+                </select>
+            </div>
             <div id="shopee-trending-products-grid" class="shopee-trending-products__grid">
                 <!-- Products will be loaded here by JavaScript -->
             </div>

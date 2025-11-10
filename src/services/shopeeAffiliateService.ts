@@ -5,12 +5,10 @@ import log from '../log'; // Adicionar esta linha
 
 dotenv.config();
 
-interface ShopeeProduct {
+interface ShopeeCategory {
   id: string;
   name: string;
   image_url: string;
-  price: string;
-  product_url: string;
 }
 
 const SHOPEE_AFFILIATE_API_BASE_URL = 'https://open-api.affiliate.shopee.com.br/graphql';
@@ -22,7 +20,7 @@ function generateSignature(appId: string, timestamp: number, payload: string, se
   return crypto.createHash('sha256').update(baseString).digest('hex');
 }
 
-export async function getTrendingProducts(pageSize: number = 6, keyword: string = ''): Promise<ShopeeProduct[]> {
+export async function getTrendingCategories(pageSize: number = 6): Promise<ShopeeCategory[]> {
   if (!SHOPEE_APP_ID || !SHOPEE_APP_SECRET) {
     console.error('Shopee Affiliate API credentials (SHOPEE_APP_ID or SHOPEE_APP_SECRET) are not set in environment variables.');
     return [];
@@ -31,23 +29,19 @@ export async function getTrendingProducts(pageSize: number = 6, keyword: string 
   const timestamp = Math.floor(Date.now() / 1000); // Unix timestamp
 
   const query = `
-    query ShopeeOfferList($keyword: String, $sortType: Int, $page: Int, $limit: Int) {
+    query ShopeeOfferV2($keyword: String, $sortType: Int, $page: Int, $limit: Int) {
       shopeeOfferV2(keyword: $keyword, sortType: $sortType, page: $page, limit: $limit) {
-        edges {
-          node {
-            productId
-            productName
-            imageUrl
-            price
-            productUrl
-          }
+        nodes {
+          collectionId
+          offerName
+          imageUrl
         }
       }
     }
   `;
 
   const variables = {
-    keyword: keyword,
+    keyword: "",
     sortType: 1, // 1: Mais recentes, 2: Maior comissão
     page: 1,
     limit: pageSize,
@@ -70,19 +64,17 @@ export async function getTrendingProducts(pageSize: number = 6, keyword: string 
     });
     log.debug(`[Shopee Affiliate API] Raw response: ${JSON.stringify(response.data)}`); // Adicionar esta linha
 
-    const offers = response.data.data.shopeeOfferV2.edges.map((edge: any) => edge.node);
+    const offers = response.data.data.shopeeOfferV2.nodes;
 
-    const products: ShopeeProduct[] = offers.map((item: any) => ({
-      id: item.productId,
-      name: item.productName,
+    const categories: ShopeeCategory[] = offers.map((item: any) => ({
+      id: item.collectionId,
+      name: item.offerName,
       image_url: item.imageUrl,
-      price: item.price,
-      product_url: item.productUrl,
     }));
 
-    return products;
+    return categories;
   } catch (error) {
-    console.error('Error fetching trending Shopee products:', error);
+    console.error('Error fetching trending Shopee categories:', error);
     if (axios.isAxiosError(error) && error.response) {
       console.error('Shopee API Error Response:', error.response.data);
       // Propagar o erro da API da Shopee para o cliente
@@ -92,3 +84,153 @@ export async function getTrendingProducts(pageSize: number = 6, keyword: string 
   }
 }
 
+export interface TrendingShopeeProduct {
+  name: string;
+  price: string;
+  image_url: string;
+  offer_link: string;
+}
+
+export async function getTrendingProducts(pageSize: number = 6): Promise<TrendingShopeeProduct[]> {
+  if (!SHOPEE_APP_ID || !SHOPEE_APP_SECRET) {
+    console.error('Shopee Affiliate API credentials (SHOPEE_APP_ID or SHOPEE_APP_SECRET) are not set in environment variables.');
+    return [];
+  }
+
+  const timestamp = Math.floor(Date.now() / 1000);
+
+  const query = `
+    query GetTrendingItems($limit: Int) {
+      productOfferV2(
+        listType: 0,
+        sortType: 5,
+        limit: $limit
+      ) {
+        nodes {
+          productName
+          price
+          imageUrl
+          offerLink
+        }
+      }
+    }
+  `;
+
+  const variables = {
+    limit: pageSize,
+  };
+
+  const requestBody = {
+    query,
+    operationName: "GetTrendingItems",
+    variables,
+  };
+
+  const payload = JSON.stringify(requestBody);
+  const signature = generateSignature(SHOPEE_APP_ID, timestamp, payload, SHOPEE_APP_SECRET);
+
+  try {
+    const response = await axios.post(SHOPEE_AFFILIATE_API_BASE_URL, requestBody, {
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `SHA256 Credential=${SHOPEE_APP_ID}, Timestamp=${timestamp}, Signature=${signature}`,
+      },
+    });
+    log.debug(`[Shopee Affiliate API] Raw response for trending products: ${JSON.stringify(response.data)}`);
+
+    const offers = response.data.data.productOfferV2.nodes;
+
+    const products: TrendingShopeeProduct[] = offers.map((item: any) => ({
+      name: item.productName,
+      price: item.price,
+      image_url: item.imageUrl,
+      offer_link: item.offerLink,
+    }));
+
+    return products;
+  } catch (error) {
+    console.error('Error fetching trending Shopee products:', error);
+    if (axios.isAxiosError(error) && error.response) {
+      console.error('Shopee API Error Response:', error.response.data);
+      throw new Error(`Shopee API Error: ${JSON.stringify(error.response.data)}`);
+    }
+    throw error;
+  }
+}
+
+export interface ShopeeProduct {
+  id: string;
+  name: string;
+  image_url: string;
+  price: string;
+  product_url: string;
+  brand: string;
+}
+
+export async function getProductsByCategory(categoryId: number, pageSize: number = 6): Promise<ShopeeProduct[]> {
+  if (!SHOPEE_APP_ID || !SHOPEE_APP_SECRET) {
+    console.error('Shopee Affiliate API credentials (SHOPEE_APP_ID or SHOPEE_APP_SECRET) are not set in environment variables.');
+    return [];
+  }
+
+  const timestamp = Math.floor(Date.now() / 1000); // Unix timestamp
+
+  const query = `
+    query ProductOfferV2($productCatId: Int, $page: Int, $limit: Int) {
+      productOfferV2(productCatId: $productCatId, page: $page, limit: $limit) {
+        nodes {
+          itemId
+          productName
+          price
+          imageUrl
+          productLink
+          shopName
+        }
+      }
+    }
+  `;
+
+  const variables = {
+    productCatId: categoryId,
+    page: 1,
+    limit: pageSize,
+  };
+
+  const requestBody = {
+    query,
+    variables,
+  };
+
+  const payload = JSON.stringify(requestBody);
+  const signature = generateSignature(SHOPEE_APP_ID, timestamp, payload, SHOPEE_APP_SECRET);
+
+  try {
+    const response = await axios.post(SHOPEE_AFFILIATE_API_BASE_URL, requestBody, {
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `SHA256 Credential=${SHOPEE_APP_ID}, Timestamp=${timestamp}, Signature=${signature}`,
+      },
+    });
+    log.debug(`[Shopee Affiliate API] Raw response: ${JSON.stringify(response.data)}`);
+
+    const offers = response.data.data.productOfferV2.nodes;
+
+    const products: ShopeeProduct[] = offers.map((item: any) => ({
+      id: item.itemId,
+      name: item.productName,
+      image_url: item.imageUrl,
+      price: item.price,
+      product_url: item.productLink,
+      brand: item.shopName,
+    }));
+
+    return products;
+  } catch (error) {
+    console.error('Error fetching Shopee products by category:', error);
+    if (axios.isAxiosError(error) && error.response) {
+      console.error('Shopee API Error Response:', error.response.data);
+      throw new Error(`Shopee API Error: ${JSON.stringify(error.response.data)}`);
+    }
+    throw error;
+  }
+}
