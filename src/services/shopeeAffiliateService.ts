@@ -91,6 +91,52 @@ export interface TrendingShopeeProduct {
   offer_link: string;
 }
 
+async function generateShortLink(originUrl: string): Promise<string> {
+  if (!SHOPEE_APP_ID || !SHOPEE_APP_SECRET) {
+    throw new Error('Shopee Affiliate API credentials are not set.');
+  }
+
+  const query = `
+    mutation($originUrl: String!) {
+      generateShortLink(input: { originUrl: $originUrl }) {
+        shortLink
+      }
+    }
+  `;
+
+  const variables = {
+    originUrl,
+  };
+
+  const requestBody = {
+    query,
+    variables,
+  };
+
+  const payload = JSON.stringify(requestBody);
+  const timestamp = Math.floor(Date.now() / 1000);
+  const signature = generateSignature(SHOPEE_APP_ID, timestamp, payload, SHOPEE_APP_SECRET);
+
+  try {
+    const response = await axios.post(SHOPEE_AFFILIATE_API_BASE_URL, requestBody, {
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `SHA256 Credential=${SHOPEE_APP_ID}, Timestamp=${timestamp}, Signature=${signature}`,
+      },
+    });
+
+    if (response.data.errors) {
+      throw new Error(`Shopee API error on generateShortLink: ${JSON.stringify(response.data.errors)}`);
+    }
+
+    return response.data.data.generateShortLink.shortLink;
+  } catch (error) {
+    console.error(`Error generating short link for ${originUrl}:`, error);
+    // Return original URL as a fallback
+    return originUrl;
+  }
+}
+
 export async function getTrendingProducts(pageSize: number = 6): Promise<TrendingShopeeProduct[]> {
   if (!SHOPEE_APP_ID || !SHOPEE_APP_SECRET) {
     console.error('Shopee Affiliate API credentials (SHOPEE_APP_ID or SHOPEE_APP_SECRET) are not set in environment variables.');
@@ -140,11 +186,15 @@ export async function getTrendingProducts(pageSize: number = 6): Promise<Trendin
 
     const offers = response.data.data.productOfferV2.nodes;
 
-    const products: TrendingShopeeProduct[] = offers.map((item: any) => ({
+    // Generate short links in parallel
+    const shortLinkPromises = offers.map((item: any) => generateShortLink(item.offerLink));
+    const shortLinks = await Promise.all(shortLinkPromises);
+
+    const products: TrendingShopeeProduct[] = offers.map((item: any, index: number) => ({
       name: item.productName,
       price: item.price,
       image_url: item.imageUrl,
-      offer_link: item.offerLink,
+      offer_link: shortLinks[index], // Use the generated short link
     }));
 
     return products;
