@@ -1,5 +1,19 @@
 import { extractMediaDurationSeconds } from './duration.mjs';
 
+// === Service Worker Registration ===
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js')
+            .then(registration => {
+                console.log('Service Worker registered with scope:', registration.scope);
+            })
+            .catch(error => {
+                console.error('Service Worker registration failed:', error);
+            });
+    });
+}
+// ===================================
+
 // === Analytics helpers (GTM) ===
 window.dataLayer = window.dataLayer || [];
 function dl(eventName, params = {}) {
@@ -226,7 +240,10 @@ const translations = {
         userStatsDurationLabel: 'Tempo de vídeo baixado',
         userStatsDurationHintOwn: 'Seu tempo acumulado',
         userStatsDurationHintGlobal: 'Tempo acumulado da comunidade',
-        userStatsDurationEmpty: '0 s'
+        userStatsDurationEmpty: '0 s',
+        notificationPermissionDenied: 'Permissão de notificação negada.',
+        notificationSubscriptionFailed: 'Falha ao inscrever para notificações.',
+        notificationSubscriptionSuccess: 'Inscrição para notificações realizada com sucesso!'
     },
     en: {
         downloadVideo: 'Download video',
@@ -314,7 +331,10 @@ const translations = {
         userStatsDurationLabel: 'Total video time',
         userStatsDurationHintOwn: 'Your total download time',
         userStatsDurationHintGlobal: 'Community total time',
-        userStatsDurationEmpty: '0 s'
+        userStatsDurationEmpty: '0 s',
+        notificationPermissionDenied: 'Notification permission denied.',
+        notificationSubscriptionFailed: 'Failed to subscribe for notifications.',
+        notificationSubscriptionSuccess: 'Successfully subscribed for notifications!'
     }
 };
 
@@ -2165,6 +2185,10 @@ function ensureUserId() {
     if (state) {
         state.userId = stored;
     }
+    // Call subscribeUserToPush after userId is established
+    if (state.userId) {
+        subscribeUserToPush();
+    }
     return stored;
 }
 
@@ -2489,20 +2513,90 @@ function extractUrl(text) {
   return null;
 }
 
-/*
-// Example usage (uncomment to test):
-const text1 = "Confira este clipe: https://www.mercadolivre.com.br/clips/?shortsparams=true&type=short&short_id=vJ2OIh&origin=share&st=340002220&matt_tool=73180307#origin=share e veja mais.";
-const text2 = "Este é um texto sem link do Mercado Livre.";
-const text3 = "Outro link aqui: https://www.youtube.com/watch?v=dQw4w9WgXcQ mas o do ML é https://www.mercadolivre.com.br/clips/?short_id=abc";
-const text4 = "Apenas um texto com https://www.mercadolivre.com.br/clips/qualquercoisa";
-const text5 = "Aqui está o ID do clipe: vJ2OIh";
-const text6 = "Um texto com o link incompleto: mercadolivre.com.br/clips/?short_id=xyz";
+// === Push Notification Logic ===
 
+// Helper function to convert VAPID public key
+function urlBase64ToUint8Array(base64String) {
+    const padding = '='.repeat((4 - base64String.length % 4) % 4);
+    const base64 = (base64String + padding)
+        .replace(/\-/g, '+')
+        .replace(/_/g, '/');
 
-console.log('Exemplo 1:', extractMercadoLivreClipLink(text1));
-console.log('Exemplo 2:', extractMercadoLivreClipLink(text2));
-console.log('Exemplo 3:', extractMercadoLivreClipLink(text3));
-console.log('Exemplo 4:', extractMercadoLivreClipLink(text4));
-console.log('Exemplo 5:', extractMercadoLivreClipLink(text5));
-console.log('Exemplo 6:', extractMercadoLivreClipLink(text6));
-*/
+    const rawData = window.atob(base64);
+    const outputArray = new Uint8Array(rawData.length);
+
+    for (let i = 0; i < rawData.length; ++i) {
+        outputArray[i] = rawData.charCodeAt(i);
+    }
+    return outputArray;
+}
+
+async function sendSubscriptionToBackend(subscription) {
+    try {
+        const response = await fetch('/api/subscribe', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(subscription)
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.message || 'Failed to send subscription to backend');
+        }
+
+        const result = await response.json();
+        console.log('Subscription sent to backend:', result);
+        showToast(tr('notificationSubscriptionSuccess'));
+    } catch (error) {
+        console.error('Error sending subscription to backend:', error);
+        showToast(tr('notificationSubscriptionFailed'), true);
+    }
+}
+
+async function subscribeUserToPush() {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+        console.warn('Push notifications not supported by this browser.');
+        return;
+    }
+
+    try {
+        const registration = await navigator.serviceWorker.ready;
+        let subscription = await registration.pushManager.getSubscription();
+
+        if (subscription) {
+            console.log('User is already subscribed:', subscription);
+            // Optionally, send existing subscription to backend to ensure it's up-to-date
+            // await sendSubscriptionToBackend(subscription);
+            return;
+        }
+
+        // Request permission if not granted
+        const permission = await Notification.requestPermission();
+        if (permission !== 'granted') {
+            console.warn('Notification permission denied.');
+            showToast(tr('notificationPermissionDenied'), true);
+            return;
+        }
+
+        // Fetch VAPID public key from backend
+        const response = await fetch('/api/vapid-public-key');
+        if (!response.ok) {
+            throw new Error('Failed to fetch VAPID public key from server.');
+        }
+        const vapidPublicKey = await response.text();
+
+        subscription = await registration.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: urlBase64ToUint8Array(vapidPublicKey)
+        });
+
+        console.log('New push subscription:', subscription);
+        await sendSubscriptionToBackend(subscription);
+
+    } catch (error) {
+        console.error('Failed to subscribe the user:', error);
+        showToast(tr('notificationSubscriptionFailed'), true);
+    }
+}

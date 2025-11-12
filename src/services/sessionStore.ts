@@ -49,7 +49,7 @@ type DownloadEvent = {
 
 let database: Database.Database | null = null;
 
-function getDatabase(): Database.Database {
+export function getDatabase(): Database.Database {
     if (database) {
         return database;
     }
@@ -88,7 +88,30 @@ function getDatabase(): Database.Database {
             PRIMARY KEY (service, media_type)
         );
     `);
+    database.exec(`
+        CREATE TABLE IF NOT EXISTS push_subscriptions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            subscription_object TEXT NOT NULL,
+            user_identifier TEXT,
+            created_at TEXT NOT NULL DEFAULT (CURRENT_TIMESTAMP),
+            click_count INTEGER NOT NULL DEFAULT 0,
+            optimal_send_hour INTEGER
+        );
+    `);
+    database.exec(`
+        CREATE TABLE IF NOT EXISTS notification_log (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            subscription_id INTEGER NOT NULL,
+            content TEXT NOT NULL,
+            type TEXT NOT NULL,
+            sent_at TEXT NOT NULL DEFAULT (CURRENT_TIMESTAMP),
+            clicked_at TEXT,
+            FOREIGN KEY (subscription_id) REFERENCES push_subscriptions(id)
+        );
+    `);
     addColumnIfMissing(database, 'sessions', 'total_duration_seconds', 'REAL NOT NULL DEFAULT 0');
+    addColumnIfMissing(database, 'push_subscriptions', 'click_count', 'INTEGER NOT NULL DEFAULT 0');
+    addColumnIfMissing(database, 'push_subscriptions', 'optimal_send_hour', 'INTEGER');
     return database;
 }
 
