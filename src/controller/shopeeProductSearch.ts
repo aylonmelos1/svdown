@@ -3,6 +3,8 @@ import log from '../log';
 import { getResolvedLink } from '../services/resolvedLinkStore';
 import { shopeeProductSearchService } from '../services/shopeeProductSearchService';
 
+const SUPPORTED_SERVICES = new Set(['shopee', 'tiktok', 'pinterest']);
+
 export async function getShopeeProductSuggestions(req: Request, res: Response) {
     const linkHash = (req.query.linkHash as string)?.trim();
 
@@ -15,21 +17,23 @@ export async function getShopeeProductSuggestions(req: Request, res: Response) {
         return res.status(404).json({ error: 'Link não encontrado ou expirado' });
     }
 
-    if ((resolvedLink.service || '').toLowerCase() !== 'shopee') {
-        return res.status(400).json({ error: 'Sugestões disponíveis apenas para vídeos da Shopee Video.' });
+    const service = (resolvedLink.service || '').toLowerCase();
+    if (!SUPPORTED_SERVICES.has(service)) {
+        return res.status(400).json({ error: 'Sugestões disponíveis apenas para vídeos da Shopee, TikTok ou Pinterest.' });
     }
 
-    const caption = resolvedLink.caption || resolvedLink.description || resolvedLink.title;
-    if (!caption || caption.trim().length < 8) {
+    const captionSource = resolvedLink.caption || resolvedLink.description || resolvedLink.title;
+    const caption = captionSource?.trim();
+    if (!caption) {
         return res.status(200).json({
             products: [],
             meta: {
                 linkHash,
                 keywords: [],
-                captionSnippet: caption?.trim() || '',
+                captionSnippet: '',
                 fetchedAt: new Date().toISOString(),
                 source: 'skipped',
-                reason: 'caption_too_short',
+                reason: 'missing_caption',
             },
         });
     }

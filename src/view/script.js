@@ -110,6 +110,7 @@ const statsLabels = {
     platform: statsSection?.querySelector('[data-stat-card="platform"] .user-stats__label') || null,
     duration: statsSection?.querySelector('[data-stat-card="duration"] .user-stats__label') || null,
 };
+const PRODUCT_SUGGESTION_SERVICES = new Set(['shopee', 'tiktok', 'pinterest']);
 const statsTitle = statsSection?.querySelector('.user-stats__title') || null;
 let toastTimer;
 let metadataToastTimer;
@@ -848,7 +849,8 @@ if (!resolverSection || !input || !resolveButton || !resultSection || !videoElem
     }
 
     function loadShopeeProductSuggestions() {
-        if (!productSuggestionsSection || (state.media.service || '').toLowerCase() !== 'shopee') {
+        const currentService = (state.media.service || '').toLowerCase();
+        if (!productSuggestionsSection || !PRODUCT_SUGGESTION_SERVICES.has(currentService)) {
             hideProductSuggestions();
             return;
         }

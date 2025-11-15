@@ -88,10 +88,38 @@ export class GroqClient {
                 raw: response.data,
             };
         } catch (error) {
-            log.error('[GroqClient] chatCompletion failed', error);
+            if (axios.isAxiosError(error)) {
+                const status = error.response?.status;
+                const apiMessage = typeof error.response?.data?.error?.message === 'string'
+                    ? error.response.data.error.message
+                    : null;
+                const serializedData = serializeErrorData(error.response?.data);
+                log.error(
+                    `[GroqClient] chatCompletion failed (status ${status ?? 'n/a'})${apiMessage ? `: ${apiMessage}` : ''}`,
+                );
+                if (serializedData) {
+                    log.debug('[GroqClient] Error payload:', serializedData);
+                }
+            } else {
+                log.error('[GroqClient] chatCompletion failed with unknown error', error);
+            }
             return null;
         }
     }
 }
 
 export const groqClient = new GroqClient();
+
+function serializeErrorData(data: unknown): string | null {
+    if (!data) {
+        return null;
+    }
+    if (typeof data === 'string') {
+        return data.slice(0, 800);
+    }
+    try {
+        return JSON.stringify(data).slice(0, 800);
+    } catch {
+        return String(data);
+    }
+}

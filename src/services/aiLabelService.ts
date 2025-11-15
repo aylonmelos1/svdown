@@ -1,7 +1,7 @@
 import log from '../log';
 import { groqClient } from './groqClient';
 
-const DEFAULT_MODEL = 'llama3-8b-8192';
+const DEFAULT_MODEL = (process.env.GROQ_DEFAULT_MODEL || '').trim() || 'llama-3.1-8b-instant';
 
 export async function suggestProductHeadlineFromCaption(caption: string, locale: 'pt' | 'en' = 'pt'): Promise<string | null> {
     if (!caption || !caption.trim()) {
