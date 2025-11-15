@@ -1,6 +1,7 @@
 import axios from 'axios';
 import crypto from 'crypto';
 import log from '../log';
+import { suggestProductHeadlineFromCaption } from './aiLabelService';
 
 const SHOPEE_AFFILIATE_API_BASE_URL = 'https://open-api.affiliate.shopee.com.br/graphql';
 
@@ -28,6 +29,7 @@ export interface ShopeeProductSearchMeta {
     fetchedAt: string;
     source: 'live' | 'cache' | 'skipped';
     reason?: string;
+    aiSuggestion?: string | null;
 }
 
 export interface ShopeeProductSearchResponse {
@@ -66,6 +68,8 @@ export class ShopeeProductSearchService {
             return response;
         }
 
+        const aiSuggestion = await suggestProductHeadlineFromCaption(caption, 'pt');
+
         try {
             const queryPayload = this.buildQueryPayload(keywords.slice(0, 6).join(' '), limit);
             const timestamp = Math.floor(Date.now() / 1000);
@@ -82,7 +86,7 @@ export class ShopeeProductSearchService {
             const offers = response.data?.data?.productOfferV2?.nodes;
             if (!Array.isArray(offers) || !offers.length) {
                 log.warn('[Shopee Product Search] Empty response from productOfferV2.');
-                const emptyResponse = this.buildResponse([], linkHash, keywords, snippet, 'live', 'no_results');
+                const emptyResponse = this.buildResponse([], linkHash, keywords, snippet, 'live', 'no_results', aiSuggestion);
                 this.saveToCache(cacheKey, emptyResponse);
                 return emptyResponse;
             }
@@ -95,7 +99,7 @@ export class ShopeeProductSearchService {
                 offerLink: typeof item.offerLink === 'string' ? item.offerLink : typeof item.productLink === 'string' ? item.productLink : '',
             })).filter(suggestion => suggestion.offerLink);
 
-            const successResponse = this.buildResponse(suggestions, linkHash, keywords, snippet, 'live');
+            const successResponse = this.buildResponse(suggestions, linkHash, keywords, snippet, 'live', undefined, aiSuggestion);
             this.saveToCache(cacheKey, successResponse);
             return successResponse;
         } catch (error) {
@@ -103,7 +107,7 @@ export class ShopeeProductSearchService {
             if (axios.isAxiosError(error) && error.response) {
                 log.error('[Shopee Product Search] API response:', error.response.data);
             }
-            const response = this.buildResponse([], linkHash, keywords, snippet, 'live', 'api_error');
+            const response = this.buildResponse([], linkHash, keywords, snippet, 'live', 'api_error', aiSuggestion);
             this.saveToCache(cacheKey, response);
             return response;
         }
@@ -138,7 +142,15 @@ export class ShopeeProductSearchService {
         });
     }
 
-    private buildResponse(products: ShopeeProductSuggestion[], linkHash: string, keywords: string[], snippet: string, source: ShopeeProductSearchMeta['source'], reason?: string): ShopeeProductSearchResponse {
+    private buildResponse(
+        products: ShopeeProductSuggestion[],
+        linkHash: string,
+        keywords: string[],
+        snippet: string,
+        source: ShopeeProductSearchMeta['source'],
+        reason?: string,
+        aiSuggestion?: string | null
+    ): ShopeeProductSearchResponse {
         return {
             products,
             meta: {
@@ -148,6 +160,7 @@ export class ShopeeProductSearchService {
                 fetchedAt: new Date().toISOString(),
                 source,
                 reason,
+                aiSuggestion: aiSuggestion || undefined,
             },
         };
     }

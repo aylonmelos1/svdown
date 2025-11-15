@@ -90,6 +90,7 @@ const productLinkModalPrimaryButton = productLinkModal?.querySelector('[data-pro
 const productSuggestionsSection = document.getElementById('shopee-product-suggestions');
 const productSuggestionsTitle = productSuggestionsSection?.querySelector('[data-product-suggestions-title]') || null;
 const productSuggestionsSubtitle = productSuggestionsSection?.querySelector('[data-product-suggestions-subtitle]') || null;
+const productSuggestionsAi = productSuggestionsSection?.querySelector('[data-product-ai]') || null;
 const productSuggestionsGrid = productSuggestionsSection?.querySelector('[data-product-grid]') || null;
 const productSuggestionsStatus = productSuggestionsSection?.querySelector('[data-product-status]') || null;
 const statsSection = document.getElementById('user-stats');
@@ -232,6 +233,7 @@ const translations = {
         productSuggestionCopy: 'Copiar link',
         productSuggestionCopied: 'Link copiado!',
         productSuggestionCopyFailed: 'Não foi possível copiar o link.',
+        productSuggestionAiLabel: 'IA sugere: {{name}}',
         legendCopiedFeedback: 'Legenda copiada para a área de transferência!',
         legendCopiedToast: 'Legenda copiada!',
         legendCopyFailed: 'Não foi possível copiar a legenda.',
@@ -346,6 +348,7 @@ const translations = {
         productSuggestionCopy: 'Copy link',
         productSuggestionCopied: 'Link copied!',
         productSuggestionCopyFailed: 'Unable to copy the product link.',
+        productSuggestionAiLabel: 'AI suggests: {{name}}',
         legendCopiedFeedback: 'Caption copied to your clipboard!',
         legendCopiedToast: 'Caption copied!',
         legendCopyFailed: 'Could not copy the caption.',
@@ -841,6 +844,7 @@ if (!resolverSection || !input || !resolveButton || !resultSection || !videoElem
         if (productSuggestionsSubtitle) {
             productSuggestionsSubtitle.textContent = tr('productSuggestionsSubtitle');
         }
+        setProductSuggestionAiLabel('');
     }
 
     function loadShopeeProductSuggestions() {
@@ -891,6 +895,8 @@ if (!resolverSection || !input || !resolveButton || !resultSection || !videoElem
                         setProductSuggestionsStatus(tr('productSuggestionEmpty'));
                     }
                 }
+                const aiSuggestion = typeof data?.meta?.aiSuggestion === 'string' ? data.meta.aiSuggestion.trim() : '';
+                setProductSuggestionAiLabel(aiSuggestion);
             })
             .catch(error => {
                 if (productSuggestionsAbortController?.signal.aborted) {
@@ -899,6 +905,7 @@ if (!resolverSection || !input || !resolveButton || !resultSection || !videoElem
                 console.error('SVDown: falha ao carregar sugestões Shopee', error);
                 setProductSuggestionsStatus(tr('productSuggestionError'), true);
                 renderProductSuggestionCards([]);
+                setProductSuggestionAiLabel('');
             })
             .finally(() => {
                 productSuggestionsAbortController = null;
@@ -1031,6 +1038,19 @@ if (!resolverSection || !input || !resolveButton || !resultSection || !videoElem
         productSuggestionsStatus.classList.toggle('hidden', !message);
     }
 
+    function setProductSuggestionAiLabel(name) {
+        if (!productSuggestionsAi) return;
+        const safeName = (name || '').trim();
+        if (safeName) {
+            const template = tr('productSuggestionAiLabel');
+            productSuggestionsAi.textContent = template.replace('{{name}}', safeName);
+            productSuggestionsAi.classList.remove('hidden');
+        } else {
+            productSuggestionsAi.textContent = '';
+            productSuggestionsAi.classList.add('hidden');
+        }
+    }
+
     function hideProductSuggestions() {
         abortProductSuggestionsRequest();
         if (productSuggestionsSection) {
@@ -1041,6 +1061,7 @@ if (!resolverSection || !input || !resolveButton || !resultSection || !videoElem
             productSuggestionsGrid.innerHTML = '';
         }
         setProductSuggestionsStatus('');
+        setProductSuggestionAiLabel('');
     }
 
     function abortProductSuggestionsRequest() {

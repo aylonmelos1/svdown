@@ -1,6 +1,6 @@
 import { createHash } from 'crypto';
 
-interface StoredLinkData {
+export interface StoredLinkData {
     link: string;
     service?: string | null;
     caption?: string | null;
