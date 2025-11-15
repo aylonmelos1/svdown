@@ -604,6 +604,38 @@
             </div>
         </div>
     </div>
+    <div class="product-link-modal hidden" data-product-link-modal aria-hidden="true">
+        <div class="product-link-modal__overlay" data-product-modal-dismiss></div>
+        <div class="product-link-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="product-modal-title" tabindex="-1">
+            <button type="button" class="product-link-modal__close" data-product-modal-dismiss aria-label="Fechar aviso">
+                <span aria-hidden="true">×</span>
+            </button>
+            <div class="product-link-modal__content">
+                <p class="product-link-modal__badge">Shopee Video</p>
+                <h2 id="product-modal-title">Links de produto da Shopee ainda não são suportados</h2>
+                <p class="product-link-modal__intro">
+                    Recebemos este link:<br>
+                    <code data-product-modal-last-link>https://s.shopee.com.br/10v7dvRQGU</code>
+                </p>
+                <p>
+                    O SVDown funciona apenas com vídeos da Shopee Video. Para baixar sem marca d’água:
+                </p>
+                <ul class="product-link-modal__list">
+                    <li>Abra o vídeo dentro da Shopee Video (no app ou site).</li>
+                    <li>Toque em compartilhar e copie o link do vídeo (ex.: <code>https://shp.ee/abc123</code>).</li>
+                    <li>Cole o link aqui e clique em “Baixar vídeo”.</li>
+                </ul>
+                <p class="product-link-modal__hint">
+                    Quando oferecermos suporte a produtos você verá essa opção aqui dentro do app.
+                </p>
+                <div class="product-link-modal__actions">
+                    <button type="button" class="btn btn-primary" data-product-modal-primary data-product-modal-dismiss>
+                        Entendi, vou pegar o link de vídeo
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
     <button id="donation-toast" class="donation-toast hidden" type="button" aria-label="Abrir modal de doação">
         <span class="donation-toast__title" data-donation-toast-title>Curtiu baixar sem marca d’água?</span>
         <span class="donation-toast__subtitle" data-donation-toast-subtitle>Doe e mantenha o SVDown gratuito 💜</span>

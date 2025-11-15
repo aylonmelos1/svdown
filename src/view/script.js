@@ -82,6 +82,11 @@ const donationModalQrWrapper = donationModal?.querySelector('[data-pix-qr]') || 
 const donationModalQrImage = donationModalQrWrapper?.querySelector('[data-pix-qr-image]') || null;
 const donationModalDismissTriggers = donationModal ? donationModal.querySelectorAll('[data-pix-dismiss]') : [];
 const donationModalQuickButtons = donationModal ? donationModal.querySelectorAll('[data-pix-quick]') : [];
+const productLinkModal = document.querySelector('[data-product-link-modal]');
+const productLinkModalDismissTriggers = productLinkModal ? productLinkModal.querySelectorAll('[data-product-modal-dismiss]') : [];
+const productLinkModalDialog = productLinkModal?.querySelector('.product-link-modal__dialog') || null;
+const productLinkModalLastLink = productLinkModal?.querySelector('[data-product-modal-last-link]') || null;
+const productLinkModalPrimaryButton = productLinkModal?.querySelector('[data-product-modal-primary]') || null;
 const statsSection = document.getElementById('user-stats');
 const statsStatus = statsSection?.querySelector('[data-stat-status]') || null;
 const statsValues = {
@@ -164,6 +169,7 @@ const translations = {
         enterLink: 'Informe um link.',
         resolvingLink: 'Resolvendo link...',
         resolveFailed: 'Não foi possível resolver o link.',
+        shopeeProductLinkBlocked: 'Não baixamos links de produto da Shopee. Use um link de vídeo da Shopee Video.',
         resolveSuccess: 'Link resolvido com sucesso!',
         mediaFound: 'Mídia encontrada',
         noDownloadAvailable: 'Nenhum arquivo disponível para download.',
@@ -267,6 +273,7 @@ const translations = {
         enterLink: 'Enter a link.',
         resolvingLink: 'Resolving link...',
         resolveFailed: 'We could not resolve the link.',
+        shopeeProductLinkBlocked: 'Product links from Shopee are not supported yet. Use a Shopee Video link instead.',
         resolveSuccess: 'Link resolved successfully!',
         mediaFound: 'Media found',
         noDownloadAvailable: 'No file available for download.',
@@ -508,6 +515,13 @@ if (!resolverSection || !input || !resolveButton || !resultSection || !videoElem
         document.addEventListener('keydown', handleDonationModalKeydown);
     }
 
+    if (productLinkModal) {
+        productLinkModalDismissTriggers.forEach(trigger => {
+            trigger.addEventListener('click', closeProductLinkModal);
+        });
+        document.addEventListener('keydown', handleProductModalKeydown);
+    }
+
     tryResolveFromQuery();
 
     async function handleResolve(linkInput) { // Renamed parameter to linkInput for clarity
@@ -520,6 +534,27 @@ if (!resolverSection || !input || !resolveButton || !resultSection || !videoElem
 
         if (!linkToResolve) {
             showFeedback(tr('enterLink'), true);
+            return;
+        }
+
+        if (isShopeeProductLink(linkToResolve)) {
+            showProductLinkModal(linkToResolve);
+            const blockedMessage = tr('shopeeProductLinkBlocked');
+            showFeedback(blockedMessage, true);
+            showToast(blockedMessage, true);
+            resultSection.classList.add('hidden');
+            resetMediaState();
+            let blockedDomain = '';
+            try {
+                blockedDomain = new URL(linkToResolve).hostname;
+            } catch (_) {
+                blockedDomain = '';
+            }
+            dl('blocked_link', {
+                reason: 'shopee_product_link',
+                domain: blockedDomain,
+                ts: Date.now(),
+            });
             return;
         }
 
@@ -2196,6 +2231,56 @@ if (!resolverSection || !input || !resolveButton || !resultSection || !videoElem
         }
     }
 
+    function showProductLinkModal(linkValue = '') {
+        if (!productLinkModal) return;
+        lastFocusedElement = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+        if (productLinkModalLastLink) {
+            productLinkModalLastLink.textContent = formatProductLinkForDisplay(linkValue);
+        }
+        productLinkModal.classList.remove('hidden');
+        document.body.classList.add('modal-open');
+        requestAnimationFrame(() => {
+            if (productLinkModalPrimaryButton instanceof HTMLElement) {
+                productLinkModalPrimaryButton.focus();
+            } else {
+                productLinkModalDialog?.focus();
+            }
+        });
+    }
+
+    function closeProductLinkModal() {
+        if (!productLinkModal) return;
+        productLinkModal.classList.add('hidden');
+        document.body.classList.remove('modal-open');
+        if (lastFocusedElement && typeof lastFocusedElement.focus === 'function') {
+            try {
+                lastFocusedElement.focus();
+            } catch (_) {
+                // fallback silently
+            }
+        }
+        lastFocusedElement = null;
+    }
+
+    function handleProductModalKeydown(event) {
+        if (!isProductModalOpen()) return;
+        if (event.key === 'Escape') {
+            event.preventDefault();
+            closeProductLinkModal();
+        }
+    }
+
+    function isProductModalOpen() {
+        return Boolean(productLinkModal && !productLinkModal.classList.contains('hidden'));
+    }
+
+    function formatProductLinkForDisplay(linkValue) {
+        if (!linkValue) return '';
+        const safe = linkValue.toString().trim();
+        if (safe.length <= 80) return safe;
+        return `${safe.slice(0, 79)}…`;
+    }
+
     function normalizePixKey(value) {
         if (!value) return '';
         const trimmed = value.trim();
@@ -2877,6 +2962,29 @@ function extractUrl(text) {
     return foundUrls[0]; // Return the first URL found
   }
   return null;
+}
+
+function isShopeeProductLink(link) {
+    if (!link) return false;
+    let parsed;
+    try {
+        parsed = new URL(link);
+    } catch (_) {
+        return false;
+    }
+    const hostname = parsed.hostname.toLowerCase();
+    const pathname = parsed.pathname.toLowerCase();
+    const isShortShopee = hostname.includes('s.shopee');
+    const isShopeeDomain = hostname.includes('shopee.com');
+    const isShpShortLink = hostname.endsWith('shp.ee');
+    if (!isShortShopee && !isShopeeDomain) {
+        return false;
+    }
+    if (isShpShortLink) {
+        return false;
+    }
+    const hasUniversalSegment = pathname.includes('/universal-link');
+    return !hasUniversalSegment;
 }
 
 // === Push Notification Logic ===

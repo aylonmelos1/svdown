@@ -577,6 +577,38 @@
             </div>
         </div>
     </div>
+    <div class="product-link-modal hidden" data-product-link-modal aria-hidden="true">
+        <div class="product-link-modal__overlay" data-product-modal-dismiss></div>
+        <div class="product-link-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="product-modal-title" tabindex="-1">
+            <button type="button" class="product-link-modal__close" data-product-modal-dismiss aria-label="Close notice">
+                <span aria-hidden="true">×</span>
+            </button>
+            <div class="product-link-modal__content">
+                <p class="product-link-modal__badge">Shopee Video</p>
+                <h2 id="product-modal-title">Shopee product links are not available yet</h2>
+                <p class="product-link-modal__intro">
+                    We received this link:<br>
+                    <code data-product-modal-last-link>https://s.shopee.com.br/10v7dvRQGU</code>
+                </p>
+                <p>
+                    SVDown only handles Shopee Video links. To grab the correct link:
+                </p>
+                <ul class="product-link-modal__list">
+                    <li>Open the video inside Shopee Video (app or web).</li>
+                    <li>Tap Share and copy the video link (e.g. <code>https://shp.ee/abc123</code>).</li>
+                    <li>Paste it here and press “Download video”.</li>
+                </ul>
+                <p class="product-link-modal__hint">
+                    Product downloads will appear in this notice as soon as we support them.
+                </p>
+                <div class="product-link-modal__actions">
+                    <button type="button" class="btn btn-primary" data-product-modal-primary data-product-modal-dismiss>
+                        Got it, I will grab the video link
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
     <button id="donation-toast" class="donation-toast hidden" type="button" aria-label="Open donation modal">
         <span class="donation-toast__title" data-donation-toast-title>Enjoying the clean downloads?</span>
         <span class="donation-toast__subtitle" data-donation-toast-subtitle>Donate and help keep SVDown free 💜</span>
