@@ -18,6 +18,7 @@ export interface ResolveResult {
     audio?: MediaSelection;
     pageProps?: any;
     extras?: Record<string, unknown>;
+    linkHash?: string;
 }
 
 export interface ResolveService {

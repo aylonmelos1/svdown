@@ -13,6 +13,7 @@ import {
     ytdownTurnstileHandler,
     ytdownDarkModeHandler,
 } from '../controller/ytdown';
+import { getShopeeProductSuggestions } from '../controller/shopeeProductSearch';
 
 export function createApiRouter(): Router {
     const router = Router();
@@ -61,6 +62,8 @@ export function createApiRouter(): Router {
             res.status(500).json({ message: 'Failed to fetch trending products' });
         }
     });
+
+    router.get('/shopee/products/suggestions', apiKeyGuard, getShopeeProductSuggestions);
 
     router.get('/vapid-public-key', (req, res) => {
         const vapidPublicKey = process.env.VAPID_PUBLIC_KEY;

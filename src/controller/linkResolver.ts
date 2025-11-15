@@ -3,6 +3,8 @@ import log from '../log';
 import { services } from '../services';
 import { ServiceAvailabilityError } from '../services/errors';
 import { extractUrl } from '../services/utils';
+import { hashLink, rememberResolvedLink } from '../services/resolvedLinkStore';
+import type { ResolveResult } from '../services/types';
 
 export const resolveLinkResponse = async (req: Request, res: Response) => {
     const linkInput = req.body.link as string;
@@ -15,8 +17,16 @@ export const resolveLinkResponse = async (req: Request, res: Response) => {
         if (service) {
             log.info(`Service found for link: ${link}. Service: ${service.constructor.name}`);
             const result = await service.resolve(link);
+            const linkHash = safeHashLink(link);
+            const caption = extractCaption(result);
+            rememberResolvedLink(linkHash, link, {
+                service: result.service,
+                caption,
+                description: result.description,
+                title: result.title,
+            });
             log.info(`Service ${service.constructor.name} resolved link ${link}`);
-            res.json(result);
+            res.json({ ...result, linkHash });
         } else {
             log.warn(`No service found for link: ${link}`);
             throw new Error('Tipo de link não suportado');
@@ -43,3 +53,29 @@ export const resolveLinkResponse = async (req: Request, res: Response) => {
         res.status(statusCode).json({ error: message });
     }
 };
+
+function safeHashLink(link: string): string {
+    try {
+        return hashLink(link);
+    } catch {
+        return '';
+    }
+}
+
+function extractCaption(result: ResolveResult): string | null {
+    const candidates: Array<unknown> = [
+        result.description,
+        result.pageProps?.mediaInfo?.video?.caption,
+        result.pageProps?.videoInfo?.caption,
+        result.title,
+    ];
+    for (const candidate of candidates) {
+        if (typeof candidate === 'string') {
+            const trimmed = candidate.trim();
+            if (trimmed) {
+                return trimmed;
+            }
+        }
+    }
+    return null;
+}

@@ -87,6 +87,11 @@ const productLinkModalDismissTriggers = productLinkModal ? productLinkModal.quer
 const productLinkModalDialog = productLinkModal?.querySelector('.product-link-modal__dialog') || null;
 const productLinkModalLastLink = productLinkModal?.querySelector('[data-product-modal-last-link]') || null;
 const productLinkModalPrimaryButton = productLinkModal?.querySelector('[data-product-modal-primary]') || null;
+const productSuggestionsSection = document.getElementById('shopee-product-suggestions');
+const productSuggestionsTitle = productSuggestionsSection?.querySelector('[data-product-suggestions-title]') || null;
+const productSuggestionsSubtitle = productSuggestionsSection?.querySelector('[data-product-suggestions-subtitle]') || null;
+const productSuggestionsGrid = productSuggestionsSection?.querySelector('[data-product-grid]') || null;
+const productSuggestionsStatus = productSuggestionsSection?.querySelector('[data-product-status]') || null;
 const statsSection = document.getElementById('user-stats');
 const statsStatus = statsSection?.querySelector('[data-stat-status]') || null;
 const statsValues = {
@@ -157,6 +162,8 @@ const donationContext = {
     defaultAmount: ''
 };
 
+let productSuggestionsAbortController = null;
+
 const VIDEO_DOWNLOAD_STAGES = ['receiving', 'resizing', 'quality', 'metadata', 'delivering', 'downloading'];
 
 const lang = document.body?.dataset?.lang || 'pt';
@@ -215,6 +222,16 @@ const translations = {
         browserDownloadConfirmVideo: 'Vamos abrir o vídeo diretamente no seu navegador em uma nova aba. Deseja continuar?',
         browserDownloadConfirmAudio: 'Vamos abrir o áudio diretamente no seu navegador em uma nova aba. Deseja continuar?',
         readyForAnother: 'Pronto para baixar outro vídeo!',
+        productSuggestionsTitle: 'Produtos que combinam com este vídeo',
+        productSuggestionsSubtitle: 'Escolhemos ofertas da Shopee com base na legenda enviada.',
+        productSuggestionLoading: 'Procurando produtos relacionados na Shopee…',
+        productSuggestionEmpty: 'Ainda não encontramos produtos relacionados para este vídeo.',
+        productSuggestionError: 'Não conseguimos buscar os produtos agora.',
+        productSuggestionUnavailable: 'As ofertas da Shopee não estão disponíveis no momento.',
+        productSuggestionOpen: 'Abrir na Shopee',
+        productSuggestionCopy: 'Copiar link',
+        productSuggestionCopied: 'Link copiado!',
+        productSuggestionCopyFailed: 'Não foi possível copiar o link.',
         legendCopiedFeedback: 'Legenda copiada para a área de transferência!',
         legendCopiedToast: 'Legenda copiada!',
         legendCopyFailed: 'Não foi possível copiar a legenda.',
@@ -319,6 +336,16 @@ const translations = {
         browserDownloadConfirmVideo: 'We will open the video directly in your browser in a new tab. Continue?',
         browserDownloadConfirmAudio: 'We will open the audio directly in your browser in a new tab. Continue?',
         readyForAnother: 'Ready to grab another video!',
+        productSuggestionsTitle: 'Products that fit this video',
+        productSuggestionsSubtitle: 'We search Shopee offers using the video caption.',
+        productSuggestionLoading: 'Looking for related products on Shopee…',
+        productSuggestionEmpty: 'No related products found for this video yet.',
+        productSuggestionError: 'We could not fetch product suggestions now.',
+        productSuggestionUnavailable: 'Shopee offers are not available right now.',
+        productSuggestionOpen: 'Open on Shopee',
+        productSuggestionCopy: 'Copy link',
+        productSuggestionCopied: 'Link copied!',
+        productSuggestionCopyFailed: 'Unable to copy the product link.',
         legendCopiedFeedback: 'Caption copied to your clipboard!',
         legendCopiedToast: 'Caption copied!',
         legendCopyFailed: 'Could not copy the caption.',
@@ -515,6 +542,11 @@ if (!resolverSection || !input || !resolveButton || !resultSection || !videoElem
         document.addEventListener('keydown', handleDonationModalKeydown);
     }
 
+    if (productSuggestionsSection) {
+        applyProductSuggestionTexts();
+        productSuggestionsGrid?.addEventListener('click', handleProductSuggestionsClick);
+    }
+
     if (productLinkModal) {
         productLinkModalDismissTriggers.forEach(trigger => {
             trigger.addEventListener('click', closeProductLinkModal);
@@ -638,6 +670,9 @@ if (!resolverSection || !input || !resolveButton || !resultSection || !videoElem
         const inferredAudioDuration = extractMediaDurationSeconds(data, 'audio');
         state.media.videoDurationSeconds = inferredVideoDuration ?? inferredAudioDuration ?? null;
         state.media.audioDurationSeconds = inferredAudioDuration ?? inferredVideoDuration ?? null;
+        if (data?.linkHash) {
+            state.linkHash = data.linkHash;
+        }
         if (data?.service === 'shopee') {
             renderShopeeResult(data);
         } else {
@@ -706,6 +741,8 @@ if (!resolverSection || !input || !resolveButton || !resultSection || !videoElem
         downloadButtonCtrl?.reset();
 
         resetCaptionBubble(captionBubble);
+
+        loadShopeeProductSuggestions();
     }
 
     function renderGenericResult(data) {
@@ -793,6 +830,224 @@ if (!resolverSection || !input || !resolveButton || !resultSection || !videoElem
         updateYtdownVisibility(isYouTube);
 
         shareLink?.classList.add('hidden');
+        hideProductSuggestions();
+    }
+
+    function applyProductSuggestionTexts() {
+        if (!productSuggestionsSection) return;
+        if (productSuggestionsTitle) {
+            productSuggestionsTitle.textContent = tr('productSuggestionsTitle');
+        }
+        if (productSuggestionsSubtitle) {
+            productSuggestionsSubtitle.textContent = tr('productSuggestionsSubtitle');
+        }
+    }
+
+    function loadShopeeProductSuggestions() {
+        if (!productSuggestionsSection || (state.media.service || '').toLowerCase() !== 'shopee') {
+            hideProductSuggestions();
+            return;
+        }
+        const linkHash = state.linkHash?.trim();
+        if (!linkHash) {
+            hideProductSuggestions();
+            return;
+        }
+        applyProductSuggestionTexts();
+        productSuggestionsSection.classList.remove('hidden');
+        productSuggestionsSection.setAttribute('aria-busy', 'true');
+        setProductSuggestionsStatus(tr('productSuggestionLoading'));
+        renderProductSuggestionCards([]);
+        abortProductSuggestionsRequest();
+        if (typeof AbortController !== 'undefined') {
+            productSuggestionsAbortController = new AbortController();
+        } else {
+            productSuggestionsAbortController = null;
+        }
+        const params = new URLSearchParams({ linkHash });
+        fetch(`/api/shopee/products/suggestions?${params.toString()}`, {
+            signal: productSuggestionsAbortController?.signal,
+            headers: { 'Accept': 'application/json' },
+        })
+            .then(async response => {
+                if (!response.ok) {
+                    throw new Error('Request failed');
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (productSuggestionsAbortController?.signal.aborted) {
+                    return;
+                }
+                const products = Array.isArray(data?.products) ? data.products : [];
+                if (products.length) {
+                    renderProductSuggestionCards(products);
+                    setProductSuggestionsStatus('');
+                } else {
+                    const reason = data?.meta?.reason;
+                    if (reason === 'missing_credentials') {
+                        setProductSuggestionsStatus(tr('productSuggestionUnavailable'));
+                    } else {
+                        setProductSuggestionsStatus(tr('productSuggestionEmpty'));
+                    }
+                }
+            })
+            .catch(error => {
+                if (productSuggestionsAbortController?.signal.aborted) {
+                    return;
+                }
+                console.error('SVDown: falha ao carregar sugestões Shopee', error);
+                setProductSuggestionsStatus(tr('productSuggestionError'), true);
+                renderProductSuggestionCards([]);
+            })
+            .finally(() => {
+                productSuggestionsAbortController = null;
+                productSuggestionsSection?.removeAttribute('aria-busy');
+            });
+    }
+
+    function renderProductSuggestionCards(products = []) {
+        if (!productSuggestionsGrid) return;
+        productSuggestionsGrid.innerHTML = '';
+        products.forEach((product, index) => {
+            const card = buildProductSuggestionCard(product, index);
+            if (card) {
+                productSuggestionsGrid.appendChild(card);
+            }
+        });
+    }
+
+    function buildProductSuggestionCard(product, index) {
+        if (!product || !product.offerLink) return null;
+        const card = document.createElement('article');
+        card.className = 'product-card';
+        card.setAttribute('data-product-card', 'true');
+        card.setAttribute('data-product-id', product.id || `product-${index + 1}`);
+        card.setAttribute('data-product-link', product.offerLink);
+
+        const name = (product.name || '').trim() || `Shopee #${index + 1}`;
+        const priceLabel = formatProductPrice(product.price);
+
+        const media = document.createElement('div');
+        media.className = 'product-card__media';
+        if (product.imageUrl) {
+            const img = document.createElement('img');
+            img.src = product.imageUrl;
+            img.alt = name;
+            img.loading = 'lazy';
+            media.appendChild(img);
+        } else {
+            const placeholder = document.createElement('div');
+            placeholder.className = 'product-card__placeholder';
+            placeholder.textContent = 'Shopee';
+            media.appendChild(placeholder);
+        }
+        const rankBadge = document.createElement('span');
+        rankBadge.className = 'product-card__rank';
+        rankBadge.textContent = `#${index + 1}`;
+        media.appendChild(rankBadge);
+
+        const title = document.createElement('h4');
+        title.className = 'product-card__title';
+        title.textContent = name.length > 80 ? `${name.slice(0, 79)}…` : name;
+
+        const price = document.createElement('p');
+        price.className = 'product-card__price';
+        price.textContent = priceLabel;
+
+        const actions = document.createElement('div');
+        actions.className = 'product-card__actions';
+
+        const openButton = document.createElement('button');
+        openButton.type = 'button';
+        openButton.className = 'btn secondary';
+        openButton.dataset.productAction = 'open';
+        openButton.textContent = tr('productSuggestionOpen');
+
+        const copyButton = document.createElement('button');
+        copyButton.type = 'button';
+        copyButton.className = 'btn secondary clear-action';
+        copyButton.dataset.productAction = 'copy';
+        copyButton.textContent = tr('productSuggestionCopy');
+
+        actions.append(openButton, copyButton);
+        card.append(media, title, price, actions);
+        return card;
+    }
+
+    function handleProductSuggestionsClick(event) {
+        const target = event.target instanceof HTMLElement ? event.target : null;
+        if (!target) return;
+        const actionButton = target.closest('[data-product-action]');
+        if (!(actionButton instanceof HTMLElement)) return;
+        const action = actionButton.dataset.productAction;
+        const card = actionButton.closest('[data-product-card]');
+        if (!card) return;
+        const productLink = card.getAttribute('data-product-link');
+        const productId = card.getAttribute('data-product-id') || '';
+        if (!productLink) return;
+        if (action === 'open') {
+            window.open(productLink, '_blank', 'noopener,noreferrer');
+            dl('shopee_product_click', {
+                link_hash: state.linkHash,
+                product_id: productId,
+                action: 'open',
+                ts: Date.now(),
+            });
+        } else if (action === 'copy') {
+            copyProductLink(productLink);
+            dl('shopee_product_click', {
+                link_hash: state.linkHash,
+                product_id: productId,
+                action: 'copy',
+                ts: Date.now(),
+            });
+        }
+    }
+
+    async function copyProductLink(link) {
+        try {
+            if (navigator.clipboard?.writeText) {
+                await navigator.clipboard.writeText(link);
+            } else {
+                const input = document.createElement('input');
+                input.value = link;
+                document.body.appendChild(input);
+                input.select();
+                document.execCommand('copy');
+                document.body.removeChild(input);
+            }
+            showToast(tr('productSuggestionCopied'));
+        } catch (error) {
+            console.error('SVDown: falha ao copiar link', error);
+            showToast(tr('productSuggestionCopyFailed'), true);
+        }
+    }
+
+    function setProductSuggestionsStatus(message, isError = false) {
+        if (!productSuggestionsStatus) return;
+        productSuggestionsStatus.textContent = message;
+        productSuggestionsStatus.classList.toggle('error', Boolean(message && isError));
+        productSuggestionsStatus.classList.toggle('hidden', !message);
+    }
+
+    function hideProductSuggestions() {
+        abortProductSuggestionsRequest();
+        if (productSuggestionsSection) {
+            productSuggestionsSection.classList.add('hidden');
+            productSuggestionsSection.removeAttribute('aria-busy');
+        }
+        if (productSuggestionsGrid) {
+            productSuggestionsGrid.innerHTML = '';
+        }
+        setProductSuggestionsStatus('');
+    }
+
+    function abortProductSuggestionsRequest() {
+        if (productSuggestionsAbortController) {
+            productSuggestionsAbortController.abort();
+            productSuggestionsAbortController = null;
+        }
     }
     
         function initYtdownOption(loadCtrl, downloadCtrl) {
@@ -1630,6 +1885,7 @@ if (!resolverSection || !input || !resolveButton || !resultSection || !videoElem
             videoDurationSeconds: null,
             audioDurationSeconds: null,
         };
+        hideProductSuggestions();
     }
 
     function clearVideoElement(element) {
@@ -2868,6 +3124,30 @@ function formatDurationSummary(value) {
         parts.push('0s');
     }
     return parts.join(' ');
+}
+
+function formatProductPrice(value) {
+    if (value === null || value === undefined) {
+        return '—';
+    }
+    if (typeof value === 'number' && Number.isFinite(value)) {
+        return new Intl.NumberFormat(lang === 'en' ? 'en-US' : 'pt-BR', {
+            style: 'currency',
+            currency: 'BRL',
+            minimumFractionDigits: 2,
+        }).format(value);
+    }
+    const raw = value.toString().trim();
+    if (!raw) return '—';
+    const numeric = Number(raw.replace(/[^\d.,-]/g, '').replace(',', '.'));
+    if (Number.isFinite(numeric)) {
+        return new Intl.NumberFormat(lang === 'en' ? 'en-US' : 'pt-BR', {
+            style: 'currency',
+            currency: 'BRL',
+            minimumFractionDigits: 2,
+        }).format(numeric);
+    }
+    return raw;
 }
 
 function resolveServiceName(service) {
