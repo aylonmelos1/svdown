@@ -8,6 +8,8 @@ import { ensureApiCookie } from './middleware/cookieInitializer';
 import { createViewRouter } from './routes/viewRoutes';
 import { createApiRouter } from './routes/apiRoutes';
 import { initializeAssetVersioning } from './services/versioningService';
+import { initializeWebSocket } from './services/websocketService';
+import { initializeProductPushScheduler } from './services/productPushScheduler';
 import webpush from 'web-push';
 
 // Configure web-push
@@ -50,13 +52,12 @@ app.use(e.static(viewPath));
 app.use('/api', createApiRouter());
 app.use('/', createViewRouter(viewPath));
 
-import { initializeWebSocket } from './services/websocketService';
-
 const PORT = process.env.PORT || 3000;
 const server = app.listen(PORT, () => {
   log.info(`Server is running on port ${PORT}`);
 });
 
 initializeWebSocket(server);
+initializeProductPushScheduler();
 
 export default server;

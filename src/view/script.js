@@ -152,6 +152,8 @@ const donationContext = {
     defaultAmount: ''
 };
 
+const VIDEO_DOWNLOAD_STAGES = ['receiving', 'resizing', 'quality', 'metadata', 'delivering', 'downloading'];
+
 const lang = document.body?.dataset?.lang || 'pt';
 const translations = {
     pt: {
@@ -173,6 +175,18 @@ const translations = {
         audioConvertFailed: 'Não foi possível converter o áudio para MP3.',
         downloadComplete: 'Download concluído! Confira sua pasta de downloads.',
         downloadFailed: 'Não foi possível baixar o arquivo.',
+        progressTitle: 'Preparando seu vídeo…',
+        progressReceiving: 'Recebendo vídeo',
+        progressResizing: 'Redimensionando vídeo',
+        progressQuality: 'Conferindo qualidade',
+        progressMetadata: 'Removendo metadados',
+        progressDelivering: 'Enviando para você',
+        progressStatusPending: 'Aguardando',
+        progressStatusActive: 'Em andamento',
+        progressStatusComplete: 'Concluído',
+        progressStatusError: 'Algo deu errado. Tente novamente.',
+        progressSocketError: 'Não conseguimos atualizar o progresso em tempo real. Seguimos processando normalmente.',
+        progressDownloadingStatus: 'Abrindo o download no seu navegador…',
         browserDownloadVideo: 'Abrir no navegador',
         browserDownloadAudio: 'Abrir áudio no navegador',
         browserDownloadStarted: 'Abrimos o link direto em uma nova aba. Se o download não começar, use "Salvar como".',
@@ -264,6 +278,18 @@ const translations = {
         audioConvertFailed: 'Could not convert the audio to MP3.',
         downloadComplete: 'Download complete! Check your downloads folder.',
         downloadFailed: 'Could not download the file.',
+        progressTitle: 'Getting your video ready…',
+        progressReceiving: 'Receiving video',
+        progressResizing: 'Resizing video',
+        progressQuality: 'Checking quality',
+        progressMetadata: 'Removing metadata',
+        progressDelivering: 'Sending it to you',
+        progressStatusPending: 'Waiting',
+        progressStatusActive: 'In progress',
+        progressStatusComplete: 'Done',
+        progressStatusError: 'Something went wrong. Please try again.',
+        progressSocketError: 'Live progress is unavailable right now, but we are still processing your video.',
+        progressDownloadingStatus: 'Opening the download in your browser…',
         browserDownloadVideo: 'Open in my browser',
         browserDownloadAudio: 'Open the audio in my browser',
         browserDownloadStarted: 'Opened the direct link in a new tab. Use "Save as" if it does not start automatically.',
@@ -401,9 +427,20 @@ if (!resolverSection || !input || !resolveButton || !resultSection || !videoElem
     setButtonLabel(genericBrowserAudio, tr('browserDownloadAudio'));
     initYtdownOption(ytdownLoadButtonCtrl, ytdownDownloadButtonCtrl);
 
+    const downloadProgressController = createDownloadProgressController();
+    const downloadSocketChannel = createDownloadSocket({
+        onStage: (payload) => downloadProgressController.handleStageEvent(payload),
+        onError: () => {
+            showToast(tr('progressSocketError'), true);
+            downloadProgressController.handleSocketError();
+        },
+    });
+    downloadProgressController.setChannel(downloadSocketChannel);
+    downloadProgressController.initialize();
+
     resolveButton.addEventListener('click', () => handleResolve(input.value.trim()));
-    downloadLink.addEventListener('click', (event) => handleDownload(event, 'video', downloadButtonCtrl));
-    genericDownloadVideo?.addEventListener('click', (event) => handleDownload(event, 'video', genericVideoButtonCtrl));
+    downloadLink.addEventListener('click', (event) => handleDownload(event, 'video', downloadButtonCtrl, 'primary'));
+    genericDownloadVideo?.addEventListener('click', (event) => handleDownload(event, 'video', genericVideoButtonCtrl, 'generic'));
     genericDownloadAudio?.addEventListener('click', (event) => handleDownload(event, 'audio', genericAudioButtonCtrl));
     genericBrowserVideo?.addEventListener('click', (event) => handleBrowserDirectDownload(event, 'video'));
     genericBrowserAudio?.addEventListener('click', (event) => handleBrowserDirectDownload(event, 'audio'));
@@ -975,7 +1012,7 @@ if (!resolverSection || !input || !resolveButton || !resultSection || !videoElem
         anchor.remove();
     }
 
-    async function handleDownload(event, mediaType, buttonCtrl) {
+    async function handleDownload(event, mediaType, buttonCtrl, progressContext = null) {
         event.preventDefault();
         if (!buttonCtrl) return;
 
@@ -992,6 +1029,14 @@ if (!resolverSection || !input || !resolveButton || !resultSection || !videoElem
         setLoading(true, loadingMessage);
         buttonCtrl.setLoading(true, mediaType === 'audio' ? tr('preparingMp3') : undefined);
 
+        let progressHandle = null;
+        let progressDownloadId = null;
+        let downloadSucceeded = false;
+        if (mediaType === 'video' && progressContext && downloadProgressController) {
+            progressHandle = downloadProgressController.begin(progressContext);
+            progressDownloadId = progressHandle?.downloadId || null;
+        }
+
         try {
             const selectionHash = await safeHash(selection.url);
             if (selectionHash) {
@@ -1003,8 +1048,13 @@ if (!resolverSection || !input || !resolveButton || !resultSection || !videoElem
                 });
             }
 
-            const requestUrl = buildDownloadRequest(selection, mediaType);
+            const requestUrl = buildDownloadRequest(selection, mediaType, {
+                downloadId: progressDownloadId,
+            });
             const response = await fetch(requestUrl);
+            if (progressHandle && downloadProgressController?.markClientStage) {
+                downloadProgressController.markClientStage(progressHandle, 'downloading', 'active');
+            }
             if (!response.ok) {
                 const startError = tr('downloadStartError');
                 if (selectionHash) {
@@ -1043,6 +1093,8 @@ if (!resolverSection || !input || !resolveButton || !resultSection || !videoElem
             showDonationToast(updatedCount);
             updateLocalStatsAfterDownload(mediaType);
 
+            downloadSucceeded = true;
+
             if (selectionHash) {
                 dl('download_complete', {
                     link_hash: selectionHash,
@@ -1076,6 +1128,9 @@ if (!resolverSection || !input || !resolveButton || !resultSection || !videoElem
         } finally {
             buttonCtrl.setLoading(false);
             setLoading(false);
+            if (progressHandle) {
+                downloadProgressController.finish(progressHandle, { success: downloadSucceeded });
+            }
         }
     }
 
@@ -1128,7 +1183,7 @@ if (!resolverSection || !input || !resolveButton || !resultSection || !videoElem
         updateLocalStatsAfterDownload(mediaType);
     }
 
-    function buildDownloadRequest(selection, mediaType) {
+    function buildDownloadRequest(selection, mediaType, extra = {}) {
         const params = new URLSearchParams();
         params.set('url', selection.url);
         if (Array.isArray(selection.fallbackUrls)) {
@@ -1147,7 +1202,318 @@ if (!resolverSection || !input || !resolveButton || !resultSection || !videoElem
         if (Number.isFinite(durationSeconds) && durationSeconds > 0) {
             params.set('duration', String(Math.round(durationSeconds)));
         }
+        if (extra.downloadId && typeof extra.downloadId === 'string') {
+            params.set('downloadId', extra.downloadId);
+        }
         return `/api/download?${params.toString()}`;
+    }
+
+    function createDownloadProgressController() {
+        const contexts = new Map();
+        const downloadToContext = new Map();
+        const pendingSubscriptions = new Set();
+        let channel = null;
+
+        function initialize() {
+            document.querySelectorAll('[data-download-progress]').forEach((container) => {
+                const contextKey = container.getAttribute('data-download-progress');
+                if (!contextKey) return;
+                const steps = {};
+                VIDEO_DOWNLOAD_STAGES.forEach((stage) => {
+                    const stepElement = container.querySelector(`[data-progress-step="${stage}"]`);
+                    if (stepElement) {
+                        steps[stage] = stepElement;
+                    }
+                });
+                contexts.set(contextKey, {
+                    element: container,
+                    steps,
+                    message: container.querySelector('[data-progress-message]'),
+                    hideTimer: null,
+                    currentId: null,
+                    completedByServer: false,
+                    awaitingClientFinalization: false,
+                });
+                container.classList.add('hidden');
+                container.setAttribute('aria-hidden', 'true');
+            });
+        }
+
+        function setChannel(nextChannel) {
+            channel = nextChannel;
+            if (channel?.subscribe && pendingSubscriptions.size) {
+                pendingSubscriptions.forEach((downloadId) => channel.subscribe(downloadId));
+                pendingSubscriptions.clear();
+            }
+        }
+
+        function begin(contextKey) {
+            const ui = contexts.get(contextKey);
+            if (!ui) return null;
+            if (ui.hideTimer) {
+                clearTimeout(ui.hideTimer);
+                ui.hideTimer = null;
+            }
+            if (ui.currentId) {
+                downloadToContext.delete(ui.currentId);
+                channel?.release?.(ui.currentId);
+            }
+            resetSteps(ui);
+            if (ui.message) {
+                ui.message.textContent = tr('progressStatusPending');
+                ui.message.classList.remove('is-error');
+            }
+            const downloadId = generateDownloadId();
+            ui.currentId = downloadId;
+            ui.completedByServer = false;
+            ui.awaitingClientFinalization = false;
+            downloadToContext.set(downloadId, contextKey);
+            ui.element.classList.remove('hidden');
+            ui.element.setAttribute('aria-hidden', 'false');
+            updateStep(ui, 'receiving', 'active');
+            if (channel?.subscribe) {
+                channel.subscribe(downloadId);
+            } else {
+                pendingSubscriptions.add(downloadId);
+            }
+            return { downloadId, contextKey };
+        }
+
+        function finish(handle, { success }) {
+            if (!handle) return;
+            const ui = contexts.get(handle.contextKey);
+            if (!ui || ui.currentId !== handle.downloadId || ui.completedByServer) {
+                return;
+            }
+            if (success) {
+                VIDEO_DOWNLOAD_STAGES.forEach((stage) => updateStep(ui, stage, 'completed'));
+                if (ui.message) {
+                    ui.message.textContent = tr('progressStatusComplete');
+                    ui.message.classList.remove('is-error');
+                }
+                scheduleHide(ui, handle.downloadId, 1600);
+            } else {
+                updateStep(ui, 'delivering', 'error');
+                updateStep(ui, 'downloading', 'error');
+                if (ui.message) {
+                    ui.message.textContent = tr('progressStatusError');
+                    ui.message.classList.add('is-error');
+                }
+                scheduleHide(ui, handle.downloadId, 2400);
+            }
+            ui.completedByServer = true;
+            ui.awaitingClientFinalization = false;
+        }
+
+        function handleStageEvent(payload = {}) {
+            const { downloadId, stage, status, message } = payload;
+            if (typeof downloadId !== 'string' || !VIDEO_DOWNLOAD_STAGES.includes(stage)) {
+                return;
+            }
+            const contextKey = downloadToContext.get(downloadId);
+            if (!contextKey) {
+                return;
+            }
+            const ui = contexts.get(contextKey);
+            if (!ui || ui.currentId !== downloadId) {
+                return;
+            }
+            updateStep(ui, stage, status);
+            if (ui.message) {
+                if (status === 'error') {
+                    ui.message.textContent = message || tr('progressStatusError');
+                    ui.message.classList.add('is-error');
+                } else if (stage === 'delivering' && status === 'completed') {
+                    ui.message.textContent = tr('progressStatusComplete');
+                    ui.message.classList.remove('is-error');
+                } else if (status === 'active') {
+                    ui.message.textContent = tr('progressStatusActive');
+                    ui.message.classList.remove('is-error');
+                }
+            }
+            if (status === 'error') {
+                ui.completedByServer = true;
+                scheduleHide(ui, downloadId, 2600);
+                return;
+            }
+            if (stage === 'delivering' && status === 'completed') {
+                ui.awaitingClientFinalization = true;
+                if (ui.message) {
+                    ui.message.textContent = tr('progressStatusActive');
+                    ui.message.classList.remove('is-error');
+                }
+            }
+        }
+
+        function handleSocketError() {
+            contexts.forEach((ui) => {
+                if (!ui.currentId || ui.completedByServer) {
+                    return;
+                }
+                if (ui.message) {
+                    ui.message.textContent = tr('progressSocketError');
+                    ui.message.classList.add('is-error');
+                }
+            });
+        }
+
+        function resetSteps(ui) {
+            Object.values(ui.steps).forEach((step) => {
+                step.classList.remove('is-active', 'is-complete', 'is-error');
+            });
+        }
+
+        function updateStep(ui, stage, status) {
+            const step = ui.steps[stage];
+            if (!step) {
+                return;
+            }
+            step.classList.remove('is-active', 'is-complete', 'is-error');
+            if (status === 'active') {
+                step.classList.add('is-active');
+            } else if (status === 'completed') {
+                step.classList.add('is-complete');
+            } else if (status === 'error') {
+                step.classList.add('is-error');
+            }
+        }
+
+        function scheduleHide(ui, downloadId, delay) {
+            if (ui.hideTimer) {
+                clearTimeout(ui.hideTimer);
+            }
+            channel?.release?.(downloadId);
+            ui.hideTimer = window.setTimeout(() => {
+                ui.hideTimer = null;
+                ui.element.classList.add('hidden');
+                ui.element.setAttribute('aria-hidden', 'true');
+                if (ui.currentId === downloadId) {
+                    ui.currentId = null;
+                }
+                downloadToContext.delete(downloadId);
+            }, delay);
+        }
+
+        function markClientStage(handle, stage, status) {
+            if (!handle || !VIDEO_DOWNLOAD_STAGES.includes(stage)) {
+                return;
+            }
+            const ui = contexts.get(handle.contextKey);
+            if (!ui || ui.currentId !== handle.downloadId || ui.completedByServer) {
+                return;
+            }
+            updateStep(ui, stage, status);
+            if (stage === 'downloading') {
+                if (status === 'active' && ui.message) {
+                    ui.message.textContent = tr('progressDownloadingStatus');
+                    ui.message.classList.remove('is-error');
+                }
+                if (status === 'error' && ui.message) {
+                    ui.message.classList.add('is-error');
+                    ui.message.textContent = tr('progressStatusError');
+                    scheduleHide(ui, handle.downloadId, 2400);
+                }
+            }
+        }
+
+        return { initialize, setChannel, begin, finish, handleStageEvent, handleSocketError, markClientStage };
+    }
+
+    function createDownloadSocket(handlers = {}) {
+        if (typeof WebSocket === 'undefined') {
+            return {
+                subscribe() {
+                    handlers.onError?.();
+                },
+                release() {}
+            };
+        }
+
+        let socket = null;
+        const pendingIds = new Set();
+        const activeIds = new Set();
+        let reconnectTimer = null;
+
+        function ensureSocket() {
+            if (socket && (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING)) {
+                return;
+            }
+            const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+            socket = new WebSocket(`${protocol}://${window.location.host}`);
+            socket.addEventListener('open', () => flushQueue());
+            socket.addEventListener('message', handleMessage);
+            socket.addEventListener('close', () => {
+                socket = null;
+                if (activeIds.size > 0 || pendingIds.size > 0) {
+                    handlers.onError?.();
+                    scheduleReconnect();
+                }
+            });
+            socket.addEventListener('error', () => {
+                socket?.close();
+            });
+        }
+
+        function handleMessage(event) {
+            try {
+                const data = JSON.parse(event.data);
+                if (data.type === 'download_stage') {
+                    handlers.onStage?.(data);
+                } else if (data.type === 'download_error') {
+                    handlers.onError?.();
+                }
+            } catch (error) {
+                console.error('SVDown: falha ao ler mensagem do WebSocket.', error);
+            }
+        }
+
+        function flushQueue() {
+            if (!socket || socket.readyState !== WebSocket.OPEN) {
+                return;
+            }
+            pendingIds.forEach((downloadId) => {
+                socket.send(JSON.stringify({ type: 'download_subscribe', downloadId }));
+                pendingIds.delete(downloadId);
+            });
+        }
+
+        function scheduleReconnect() {
+            if (reconnectTimer) {
+                return;
+            }
+            reconnectTimer = window.setTimeout(() => {
+                reconnectTimer = null;
+                ensureSocket();
+                flushQueue();
+            }, 2000);
+        }
+
+        return {
+            subscribe(downloadId) {
+                if (!downloadId) {
+                    return;
+                }
+                activeIds.add(downloadId);
+                pendingIds.add(downloadId);
+                ensureSocket();
+                flushQueue();
+            },
+            release(downloadId) {
+                if (!downloadId) {
+                    return;
+                }
+                activeIds.delete(downloadId);
+                pendingIds.delete(downloadId);
+            }
+        };
+    }
+
+    function generateDownloadId() {
+        if (window.crypto?.randomUUID) {
+            return window.crypto.randomUUID();
+        }
+        const randomPart = Math.random().toString(36).slice(2, 10);
+        return `dl-${Date.now().toString(36)}-${randomPart}`;
     }
 
     function extractDownloadCountHeader(response) {

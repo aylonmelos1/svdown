@@ -1,16 +1,24 @@
-import axios from 'axios';
+import axios, { AxiosResponse } from 'axios';
 import * as cheerio from 'cheerio';
 import type { ResolveResult } from './types';
 import { fileNameFromUrl, sanitizeBaseName } from './utils';
 
 export class PinterestService {
+    private readonly shortDomains = new Set(['pin.it', 'www.pin.it']);
+
     public isApplicable(url: string): boolean {
-        const parsedUrl = new URL(url);
-        return parsedUrl.hostname.includes('pinterest.');
+        try {
+            const parsedUrl = new URL(url);
+            const hostname = parsedUrl.hostname.toLowerCase();
+            return this.isPinterestHostname(hostname);
+        } catch {
+            return false;
+        }
     }
 
     public async resolve(url: string): Promise<ResolveResult> {
-        const encodedUrl = encodeURIComponent(url);
+        const pinterestUrl = await this.normalizePinterestUrl(url);
+        const encodedUrl = encodeURIComponent(pinterestUrl);
         const fullUrl = `https://www.savepin.app/download.php?url=${encodedUrl}&lang=en&type=redirect`;
 
         try {
@@ -96,6 +104,59 @@ export class PinterestService {
         if (match) return parseInt(match[1], 10);
         const digits = value.match(/(\d{3,4})/);
         if (digits) return parseInt(digits[1], 10);
+        return undefined;
+    }
+
+    private isPinterestHostname(hostname: string): boolean {
+        return hostname.includes('pinterest.') || this.shortDomains.has(hostname);
+    }
+
+    private async normalizePinterestUrl(url: string): Promise<string> {
+        let hostname: string;
+
+        try {
+            hostname = new URL(url).hostname.toLowerCase();
+        } catch {
+            return url;
+        }
+
+        if (!this.shortDomains.has(hostname)) {
+            return url;
+        }
+
+        try {
+            const response = await axios.get(url, {
+                maxRedirects: 5,
+                timeout: 5000,
+                responseType: 'text',
+            });
+            const redirectedUrl = this.extractRedirectTarget(response, url);
+            return redirectedUrl || url;
+        } catch {
+            return url;
+        }
+    }
+
+    private extractRedirectTarget(response: AxiosResponse, fallback: string): string | undefined {
+        const request: any = response.request;
+        const responseUrl: string | undefined = request?.res?.responseUrl;
+        if (responseUrl) {
+            return responseUrl;
+        }
+
+        const locationHeader =
+            response.headers?.['location'] ||
+            response.headers?.['Location'] ||
+            (typeof response.headers?.get === 'function' ? response.headers.get('location') : undefined);
+
+        if (locationHeader) {
+            try {
+                return new URL(locationHeader, fallback).toString();
+            } catch {
+                return undefined;
+            }
+        }
+
         return undefined;
     }
 }

@@ -109,6 +109,16 @@ export function getDatabase(): Database.Database {
             FOREIGN KEY (subscription_id) REFERENCES push_subscriptions(id)
         );
     `);
+    database.exec(`
+        CREATE TABLE IF NOT EXISTS product_push_batches (
+            batch_id TEXT PRIMARY KEY,
+            schedule_slot TEXT NOT NULL,
+            created_at TEXT NOT NULL DEFAULT (CURRENT_TIMESTAMP),
+            payload TEXT NOT NULL,
+            sent_at TEXT,
+            error TEXT
+        );
+    `);
     addColumnIfMissing(database, 'sessions', 'total_duration_seconds', 'REAL NOT NULL DEFAULT 0');
     addColumnIfMissing(database, 'push_subscriptions', 'click_count', 'INTEGER NOT NULL DEFAULT 0');
     addColumnIfMissing(database, 'push_subscriptions', 'optimal_send_hour', 'INTEGER');

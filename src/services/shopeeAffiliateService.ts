@@ -85,8 +85,11 @@ export async function getTrendingCategories(pageSize: number = 6): Promise<Shope
 }
 
 export interface TrendingShopeeProduct {
+  id?: string;
   name: string;
   price: string;
+  original_price?: string;
+  discount_percent?: string | number;
   image_url: string;
   offer_link: string;
 }
@@ -146,13 +149,15 @@ export async function getTrendingProducts(pageSize: number = 6): Promise<Trendin
   const timestamp = Math.floor(Date.now() / 1000);
 
   const query = `
-    query GetTrendingItems($limit: Int) {
+    query GetTrendingItems($limit: Int, $page: Int) {
       productOfferV2(
         listType: 0,
         sortType: 5,
+        page: $page,
         limit: $limit
       ) {
         nodes {
+          itemId
           productName
           price
           imageUrl
@@ -164,6 +169,7 @@ export async function getTrendingProducts(pageSize: number = 6): Promise<Trendin
 
   const variables = {
     limit: pageSize,
+    page: 1,
   };
 
   const requestBody = {
@@ -182,17 +188,27 @@ export async function getTrendingProducts(pageSize: number = 6): Promise<Trendin
         'Authorization': `SHA256 Credential=${SHOPEE_APP_ID}, Timestamp=${timestamp}, Signature=${signature}`,
       },
     });
-    log.debug(`[Shopee Affiliate API] Raw response for trending products: ${JSON.stringify(response.data)}`);
-
-    const offers = response.data.data.productOfferV2.nodes;
+    const payloadData = response.data;
+    log.debug(`[Shopee Affiliate API] Raw response for trending products: ${JSON.stringify(payloadData)}`);
+    if (payloadData?.errors?.length) {
+      log.warn(`[Shopee Affiliate API] Errors for trending products: ${JSON.stringify(payloadData.errors)}`);
+    }
+    const offers = payloadData?.data?.productOfferV2?.nodes;
+    if (!Array.isArray(offers) || offers.length === 0) {
+      log.warn('[Shopee Affiliate API] Trending products response missing productOfferV2 nodes.');
+      return [];
+    }
 
     // Generate short links in parallel
     const shortLinkPromises = offers.map((item: any) => generateShortLink(item.offerLink));
     const shortLinks = await Promise.all(shortLinkPromises);
 
     const products: TrendingShopeeProduct[] = offers.map((item: any, index: number) => ({
+      id: typeof item.itemId === 'string' || typeof item.itemId === 'number' ? String(item.itemId) : undefined,
       name: item.productName,
       price: item.price,
+      original_price: item.priceBeforeDiscount,
+      discount_percent: item.discount,
       image_url: item.imageUrl,
       offer_link: shortLinks[index], // Use the generated short link
     }));

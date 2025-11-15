@@ -109,7 +109,7 @@ function updateOptimalSendHour(subscriptionId: number) {
 async function sendWelcomeNotification(subscription: PushSubscription) {
     const payload = {
         title: 'Inscrição concluída!',
-        body: 'Obrigado por se inscrever! Agora você receberá as novidades do SVDown.',
+        body: 'Obrigado por se inscrever! Agora você receberá as notificações de quando seu vídeo ficar pronto.',
         type: 'welcome'
     };
     try {

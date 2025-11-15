@@ -1882,3 +1882,99 @@ body.modal-open {
         width: 100%;
     }
 }
+
+.download-progress {
+    margin-top: 1rem;
+    padding: 1rem;
+    border-radius: 0.75rem;
+    border: 1px solid rgba(148, 163, 184, 0.5);
+    background: rgba(15, 23, 42, 0.02);
+}
+
+.download-progress__title {
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: #475569;
+    margin: 0;
+}
+
+.download-progress__list {
+    list-style: none;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem 1.25rem;
+    padding: 0;
+    margin: 0.75rem 0 0;
+}
+
+.download-progress__step {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.85rem;
+    color: #94a3b8;
+    min-width: 140px;
+}
+
+.download-progress__indicator {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    border: 2px solid rgba(148, 163, 184, 0.8);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.download-progress__step.is-active {
+    color: #0f172a;
+    font-weight: 500;
+}
+
+.download-progress__step.is-active .download-progress__indicator {
+    border-color: #2563eb;
+    background-color: #2563eb;
+}
+
+.download-progress__step.is-complete {
+    color: #15803d;
+    font-weight: 500;
+}
+
+.download-progress__step.is-complete .download-progress__indicator {
+    border-color: #16a34a;
+    background-color: #16a34a;
+}
+
+.download-progress__step.is-error {
+    color: #b91c1c;
+    font-weight: 600;
+}
+
+.download-progress__step.is-error .download-progress__indicator {
+    border-color: #dc2626;
+    background-color: #dc2626;
+}
+
+.download-progress__message {
+    margin: 0.75rem 0 0;
+    font-size: 0.85rem;
+    color: #64748b;
+}
+
+.download-progress__message.is-error {
+    color: #b91c1c;
+    font-weight: 600;
+}
+
+@media (max-width: 640px) {
+    .download-progress__list {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .download-progress__step {
+        min-width: 0;
+    }
+}

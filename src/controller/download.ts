@@ -6,14 +6,26 @@ import { promises as fs } from 'fs';
 import path from 'path';
 import os from 'os';
 import ffmpegPath from 'ffmpeg-static';
+import ffprobeStatic from 'ffprobe-static';
 import { recordDownloadEvent } from '../services/sessionStore';
 import type { SupportedService } from '../services/types';
 import { cleanupMetadata, convertToMp3, finalizeCleanMedia, metadataFeatures, redactForLogs } from '../lib/mediaCleaner';
+import { notifyDownloadStage, DownloadStage } from '../services/websocketService';
 
 const USER_ID_COOKIE = 'svdown_uid';
 
 const MAX_FILE_SIZE_BYTES = 150 * 1024 * 1024; // 150 MB
 const DOWNLOAD_TIMEOUT_MS = 30_000;
+const FFPROBE_BINARY = ffprobeStatic?.path ?? null;
+
+const downloadStageErrorMessages: Record<DownloadStage, string> = {
+    receiving: 'Estamos com dificuldades para receber o vídeo.',
+    resizing: 'Não conseguimos redimensionar o vídeo agora.',
+    quality: 'Falha ao conferir a qualidade do arquivo.',
+    metadata: 'Não foi possível remover os metadados neste momento.',
+    delivering: 'Erro ao enviar o arquivo final.',
+    downloading: 'Não conseguimos concluir o download no navegador.',
+};
 
 // Helper function to download a file from a URL
 const DOWNLOAD_HEADERS = {
@@ -132,7 +144,7 @@ async function sendFile(res: Response, filePath: string, fileName: string, conte
 }
 
 export const downloadVideoHandler = async (req: Request, res: Response) => {
-    const { url, fallback, type, service, duration, durationSeconds, durationMs } = req.query as {
+    const { url, fallback, type, service, duration, durationSeconds, durationMs, downloadId } = req.query as {
         url?: string;
         fallback?: string | string[];
         type?: string;
@@ -140,9 +152,11 @@ export const downloadVideoHandler = async (req: Request, res: Response) => {
         duration?: string;
         durationSeconds?: string;
         durationMs?: string;
+        downloadId?: string;
     };
     const serviceParam = parseServiceParam(service);
     const durationParam = parseDurationParam(duration ?? durationSeconds ?? durationMs);
+    const downloadIdParam = typeof downloadId === 'string' ? downloadId : undefined;
 
     if (!url) {
         return res.status(400).json({ error: 'URL parameter is required' });
@@ -164,6 +178,7 @@ export const downloadVideoHandler = async (req: Request, res: Response) => {
         mediaType,
         durationSeconds: durationParam,
     });
+    const runStage = createDownloadStageRunner(mediaType === 'video' ? downloadIdParam : undefined);
 
     let tempDir: string | undefined;
     try {
@@ -173,13 +188,22 @@ export const downloadVideoHandler = async (req: Request, res: Response) => {
         let tempInputPath: string | null = null;
         let usedUrl: string | undefined;
 
-        if (serviceParam === 'mercadolivre') {
-            tempInputPath = await downloadHlsStream(url, tempDir, 'input.mp4');
-            usedUrl = url;
-        } else {
-            tempInputPath = path.join(tempDir, mediaType === 'audio' ? 'input.bin' : 'input.mp4');
+        const performDownload = async () => {
+            if (serviceParam === 'mercadolivre') {
+                tempInputPath = await downloadHlsStream(url, tempDir!, 'input.mp4');
+                usedUrl = url;
+                return;
+            }
+            const inputName = mediaType === 'audio' ? 'input.bin' : 'input.mp4';
+            tempInputPath = path.join(tempDir!, inputName);
             log.info(`Starting raw download from: ${redactForLogs(url)}`);
             usedUrl = await downloadWithFallback(candidates, tempInputPath);
+        };
+
+        await runStage('receiving', performDownload);
+
+        if (!tempInputPath) {
+            throw new Error('Falha ao preparar arquivo de entrada.');
         }
 
         const effectiveInputPath = tempInputPath;
@@ -188,10 +212,11 @@ export const downloadVideoHandler = async (req: Request, res: Response) => {
         const safeResolvedUrl = redactForLogs(effectiveSource);
 
         log.info(`Download complete from ${safeResolvedUrl}. Starting ffmpeg processing.`);
-        const probedDurationSeconds = await logOriginalMetadata(effectiveInputPath);
+        let probedDurationSeconds: number | null = null;
 
         try {
             if (mediaType === 'audio') {
+                probedDurationSeconds = await logOriginalMetadata(effectiveInputPath);
                 await convertToMp3(effectiveInputPath, tempOutputPath);
                 await finalizeCleanMedia('audio', tempOutputPath);
                 res.setHeader('X-Audio-Transcoded', 'true');
@@ -199,20 +224,29 @@ export const downloadVideoHandler = async (req: Request, res: Response) => {
                 await sendFile(res, tempOutputPath, downloadFileName, 'audio/mpeg');
                 log.info(`\n\n=== Download Summary ===\nArquivo: ${downloadFileName}\nEntrega: audio/mp3\nURL solicitada: ${safeRequestedUrl}\nURL resolvida: ${safeResolvedUrl}\nMetadados: removidos\n\n`);
             } else {
-                await cleanupMetadata(effectiveInputPath, tempOutputPath);
-                await finalizeCleanMedia('video', tempOutputPath);
+                probedDurationSeconds = await runStage('resizing', async () => {
+                    const duration = await logOriginalMetadata(effectiveInputPath);
+                    await cleanupMetadata(effectiveInputPath, tempOutputPath);
+                    return duration;
+                });
+
+                await runStage('quality', async () => verifyVideoOutputQuality(tempOutputPath));
+                await runStage('metadata', async () => finalizeCleanMedia('video', tempOutputPath));
                 res.setHeader('X-Metadata-Cleaned', 'true');
                 trackDownload({ durationSeconds: probedDurationSeconds });
-                await sendFile(res, tempOutputPath, downloadFileName, 'video/mp4');
+                await runStage('delivering', async () => sendFile(res, tempOutputPath, downloadFileName, 'video/mp4'));
                 log.info(`\n\n=== Download Summary ===\nArquivo: ${downloadFileName}\nEntrega: video/mp4\nURL solicitada: ${safeRequestedUrl}\nURL resolvida: ${safeResolvedUrl}\nMetadados: removidos\n\n`);
             }
         } catch (error) {
             log.error('Failed to process media, sending original file.', error);
             res.setHeader(mediaType === 'video' ? 'X-Metadata-Cleaned' : 'X-Audio-Transcoded', 'false');
 
-            const contentType = mediaType === 'audio' ? 'application/octet-stream' : 'video/mp4';
             trackDownload({ durationSeconds: probedDurationSeconds });
-            await sendFile(res, effectiveInputPath, downloadFileName, contentType);
+            if (mediaType === 'video') {
+                await runStage('delivering', async () => sendFile(res, effectiveInputPath, downloadFileName, 'video/mp4'));
+            } else {
+                await sendFile(res, effectiveInputPath, downloadFileName, 'application/octet-stream');
+            }
             log.warn(`\n\n=== Download Summary ===\nArquivo: ${downloadFileName}\nEntrega: ${mediaType === 'audio' ? 'audio original' : 'video original'}\nURL solicitada: ${safeRequestedUrl}\nURL resolvida: ${safeResolvedUrl}\nMetadados: preservados (falha no processamento)\n\n`);
         }
 
@@ -313,6 +347,28 @@ async function downloadHlsStream(masterPlaylistUrl: string, outputDir: string, o
     });
 }
 
+function createDownloadStageRunner(downloadId?: string) {
+    if (!downloadId) {
+        return async function passthroughStage<T>(_stage: DownloadStage, task: () => Promise<T>): Promise<T> {
+            return task();
+        };
+    }
+
+    return async function trackedStage<T>(stage: DownloadStage, task: () => Promise<T>): Promise<T> {
+        notifyDownloadStage(downloadId, stage, 'active');
+        try {
+            const result = await task();
+            notifyDownloadStage(downloadId, stage, 'completed');
+            return result;
+        } catch (error) {
+            notifyDownloadStage(downloadId, stage, 'error', {
+                message: downloadStageErrorMessages[stage],
+            });
+            throw error;
+        }
+    };
+}
+
 
 function buildTimestampedFileName(extension: string) {
     const ext = extension.startsWith('.') ? extension : `.${extension}`;
@@ -325,6 +381,54 @@ function buildTimestampedFileName(extension: string) {
     ].join('');
     const timePart = [pad(now.getUTCHours()), pad(now.getUTCMinutes()), pad(now.getUTCSeconds())].join('');
     return `SVDown-${timestamp}-${timePart}${ext}`;
+}
+
+async function verifyVideoOutputQuality(filePath: string): Promise<void> {
+    if (!FFPROBE_BINARY) {
+        log.warn('ffprobe binary not found; skipping processed video quality verification.');
+        return;
+    }
+
+    await new Promise<void>((resolve, reject) => {
+        const ffprobe = spawn(FFPROBE_BINARY, [
+            '-v', 'error',
+            '-select_streams', 'v:0',
+            '-show_entries', 'stream=codec_name,width,height',
+            '-of', 'json',
+            filePath,
+        ]);
+
+        let stdoutBuffer = '';
+        let stderrBuffer = '';
+
+        ffprobe.stdout.on('data', (data) => {
+            stdoutBuffer += data.toString();
+        });
+
+        ffprobe.stderr.on('data', (data) => {
+            stderrBuffer += data.toString();
+        });
+
+        ffprobe.on('close', (code) => {
+            if (code !== 0) {
+                reject(new Error(`ffprobe exited with code ${code}${stderrBuffer ? `: ${stderrBuffer.trim()}` : ''}`));
+                return;
+            }
+            try {
+                const parsed = JSON.parse(stdoutBuffer || '{}');
+                const stream = Array.isArray(parsed.streams) ? parsed.streams[0] : null;
+                if (!stream || typeof stream.codec_name !== 'string') {
+                    reject(new Error('Processed video missing video stream data.'));
+                    return;
+                }
+                resolve();
+            } catch (error) {
+                reject(error instanceof Error ? error : new Error('Failed to parse ffprobe output.'));
+            }
+        });
+
+        ffprobe.on('error', reject);
+    });
 }
 
 function isValidHttpUrl(value: string) {
